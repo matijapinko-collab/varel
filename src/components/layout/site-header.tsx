@@ -7,6 +7,7 @@ import type { Locale } from "@/lib/i18n/config";
 import { ThemeToggle } from "./theme-toggle";
 import { LanguageSwitcher } from "./language-switcher";
 import { MobileNav } from "./mobile-nav";
+import { StickyHeader } from "./sticky-header";
 
 export async function SiteHeader({ locale }: { locale: Locale }) {
   const [menu, languages, branding] = await Promise.all([
@@ -33,30 +34,34 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
   const siteName = branding?.siteName ?? "Varel";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
+    <StickyHeader>
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href={`/${locale}`} className="flex items-center gap-2" aria-label={siteName}>
+        <Link
+          href={`/${locale}`}
+          className="flex items-center gap-2 transition-transform duration-200 will-change-transform hover:scale-[1.03] active:scale-[0.98]"
+          aria-label={siteName}
+        >
           {logoUrl ? (
             <>
               <Image
                 src={logoUrl}
                 alt={siteName}
-                width={120}
-                height={32}
-                className="h-8 w-auto dark:hidden"
+                width={176}
+                height={48}
+                className="h-8 w-auto sm:h-10 dark:hidden"
                 priority
               />
               <Image
                 src={darkLogoUrl ?? logoUrl}
                 alt={siteName}
-                width={120}
-                height={32}
-                className="hidden h-8 w-auto dark:block"
+                width={176}
+                height={48}
+                className="hidden h-8 w-auto sm:h-10 dark:block"
                 priority
               />
             </>
           ) : (
-            <span className="text-xl font-bold tracking-tight">
+            <span className="text-[26px] font-extrabold tracking-[-0.03em] sm:text-[30px]">
               <span className="text-primary">V</span>
               {siteName.slice(1) || "arel"}
             </span>
@@ -68,9 +73,10 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
             <Link
               key={item.url + item.label}
               href={item.url}
-              className="rounded-full px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-soft hover:text-foreground"
+              className="group relative rounded-lg px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:text-primary"
             >
               {item.label}
+              <span className="pointer-events-none absolute inset-x-3 -bottom-0.5 h-px origin-left scale-x-0 bg-primary transition-transform duration-200 ease-out group-hover:scale-x-100" />
             </Link>
           ))}
         </nav>
@@ -88,6 +94,6 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
           <MobileNav items={items} />
         </div>
       </div>
-    </header>
+    </StickyHeader>
   );
 }

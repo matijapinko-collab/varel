@@ -41,7 +41,7 @@ export function ToolCard({ tool, locale }: { tool: ToolCardData; locale: Locale 
   return (
     <Link
       href={`/${locale}/tools/${slug}`}
-      className="group flex flex-col rounded-card border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+      className="group flex flex-col rounded-card border border-border bg-card p-5 shadow-sm transition-all duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-md active:scale-[0.99] motion-reduce:transform-none motion-reduce:transition-none"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -51,7 +51,7 @@ export function ToolCard({ tool, locale }: { tool: ToolCardData; locale: Locale 
               alt={tool.logo.altText ?? name}
               width={40}
               height={40}
-              className="h-10 w-10 rounded-lg border border-border object-contain"
+              className="h-10 w-10 rounded-lg border border-border object-contain transition-transform duration-200 group-hover:scale-105 motion-reduce:transform-none"
             />
           ) : (
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-soft text-sm font-bold text-primary">

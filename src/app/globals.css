@@ -19,6 +19,8 @@
   --border: #e2e8f0;
   --soft: #eff6ff;
   --radius: 0.75rem;
+  --focus-ring: #2563eb;
+  --search-glow: rgba(37, 99, 235, 0.1);
 }
 
 .dark {
@@ -32,6 +34,8 @@
   --muted-foreground: #94a3b8;
   --border: #1e2b44;
   --soft: #0b172a;
+  --focus-ring: #56d9ff;
+  --search-glow: rgba(47, 128, 255, 0.18);
 }
 
 @theme inline {
@@ -115,4 +119,98 @@ body {
 .prose-varel img {
   border-radius: var(--radius);
   margin: 1rem 0;
+}
+
+/* =============================================================
+   Motion system — premium homepage animations.
+   Framer Motion drives component-level motion; the pieces below
+   are the CSS-only parts (focus rings, hero background glow) plus
+   the reduced-motion safety net.
+   ============================================================= */
+
+/* Visible, theme-aware focus ring for keyboard users. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Hero background glow: soft blurred blue/cyan blobs.
+   Animated on desktop (transform + opacity only), static on mobile. */
+.varel-glow-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.22;
+  will-change: transform, opacity;
+}
+.varel-glow-blob-1 {
+  top: -120px;
+  left: 12%;
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle at center, var(--primary), transparent 70%);
+}
+.varel-glow-blob-2 {
+  top: -60px;
+  right: 8%;
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle at center, var(--accent), transparent 70%);
+  opacity: 0.18;
+}
+.dark .varel-glow-blob-1 {
+  opacity: 0.3;
+}
+.dark .varel-glow-blob-2 {
+  opacity: 0.24;
+}
+
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+  .varel-glow-blob-1 {
+    animation: varel-glow-drift-1 16s ease-in-out infinite;
+  }
+  .varel-glow-blob-2 {
+    animation: varel-glow-drift-2 14s ease-in-out infinite;
+  }
+}
+
+@keyframes varel-glow-drift-1 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.18;
+  }
+  50% {
+    transform: translate3d(30px, 20px, 0) scale(1.08);
+    opacity: 0.28;
+  }
+}
+@keyframes varel-glow-drift-2 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.05);
+    opacity: 0.14;
+  }
+  50% {
+    transform: translate3d(-24px, 16px, 0) scale(1);
+    opacity: 0.24;
+  }
+}
+
+/* Reduced-motion safety net: disable all animation/transition globally and
+   hide the animated glow. Framer Motion components also self-disable via
+   useReducedMotion(); this backstops any CSS-driven motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .varel-hero-glow {
+    display: none;
+  }
 }

@@ -8,6 +8,8 @@ import { ToolCard, type ToolCardData } from "@/components/cards/tool-card";
 import { SearchBar } from "./search-bar";
 import { NewsletterForm } from "./newsletter-form";
 import { FaqAccordion } from "./faq-accordion";
+import { HeroMotion } from "@/components/motion/hero-motion";
+import { AnimatedSection } from "@/components/motion/animated-section";
 
 /**
  * Renders page-builder blocks stored in the database (page_blocks table).
@@ -49,9 +51,18 @@ export async function BlockRenderer({
 }) {
   return (
     <>
-      {blocks.map((block) => (
-        <Block key={block.id} block={block} locale={locale} />
-      ))}
+      {blocks.map((block) => {
+        // Hero animates on load; global sections manage their own children.
+        // Every other section reveals once as it scrolls into view.
+        if (block.type === "hero" || block.type === "global_section") {
+          return <Block key={block.id} block={block} locale={locale} />;
+        }
+        return (
+          <AnimatedSection key={block.id}>
+            <Block block={block} locale={locale} />
+          </AnimatedSection>
+        );
+      })}
     </>
   );
 }
@@ -69,26 +80,14 @@ async function Block({ block, locale }: { block: BlockData; locale: Locale }) {
 
     case "hero":
       return (
-        <section className="bg-gradient-to-b from-soft to-background px-4 pb-16 pt-20 text-center">
-          <div className="mx-auto max-w-3xl">
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-              {str(c, "title", t.hero_title)}
-            </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
-              {str(c, "subtitle", t.hero_subtitle)}
-            </p>
-            {str(s, "showSearch", "true") !== "false" && (
-              <div className="mt-8">
-                <SearchBar
-                  locale={locale}
-                  large
-                  placeholder={str(c, "searchPlaceholder", t.search_placeholder)}
-                  suggestions={list(c, "suggestedSearches")}
-                />
-              </div>
-            )}
-          </div>
-        </section>
+        <HeroMotion
+          title={str(c, "title", t.hero_title)}
+          subtitle={str(c, "subtitle", t.hero_subtitle)}
+          searchPlaceholder={str(c, "searchPlaceholder", t.search_placeholder)}
+          suggestions={list(c, "suggestedSearches")}
+          locale={locale}
+          showSearch={str(s, "showSearch", "true") !== "false"}
+        />
       );
 
     case "search_bar":
