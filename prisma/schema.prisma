@@ -1,0 +1,1297 @@
+// =============================================================
+// VAREL — Prisma schema
+// Generated from the approved "Varel Database Design" document.
+// Tables are snake_case in the database via @@map; models are
+// PascalCase per the naming guidelines in that document.
+// =============================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -----------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------
+
+enum UserRoleType {
+  OWNER
+  ADMIN
+  EDITOR
+  WRITER
+  TRANSLATOR
+  AFFILIATE_MANAGER
+  SEO_MANAGER
+  VIEWER
+}
+
+enum ContentStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+  SCHEDULED
+}
+
+enum ContentOrigin {
+  HUMAN_WRITTEN
+  AI_ASSISTED
+  AI_GENERATED
+}
+
+enum ArticleType {
+  CORNERSTONE
+  STANDARD
+}
+
+enum ThemeMode {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum PricingModel {
+  FREE
+  FREEMIUM
+  PAID
+  TRIAL
+  OPEN_SOURCE
+  CUSTOM
+}
+
+enum AffiliateNetwork {
+  PARTNERSTACK
+  IMPACT
+  AWIN
+  CJ_AFFILIATE
+  AMAZON_ASSOCIATES
+  REWARDFUL
+  FIRSTPROMOTER
+  DIRECT
+  OTHER
+}
+
+enum AffiliateStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  EXPIRED
+}
+
+enum AnalyticsEventType {
+  PAGE_VIEW
+  TOOL_VIEW
+  AFFILIATE_CLICK
+  SEARCH
+  LANGUAGE_SWITCH
+  PROMPT_COPY
+  COMPARISON_VIEW
+  CATEGORY_CLICK
+  NEWSLETTER_SIGNUP
+  OUTBOUND_CLICK
+  DEAL_CLICK
+}
+
+enum SeoEntityType {
+  PAGE
+  TOOL
+  CATEGORY
+  ARTICLE
+  EDITORIAL
+  NEWS
+  PROMPT
+  DEAL
+  COMPARISON
+}
+
+enum AffiliateEntityType {
+  TOOL
+  DEAL
+  AMAZON_PRODUCT
+  CUSTOM
+}
+
+enum NewsPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum PromptDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum SubscriberStatus {
+  PENDING
+  ACTIVE
+  UNSUBSCRIBED
+}
+
+enum MenuLocation {
+  HEADER
+  FOOTER
+  SECONDARY
+}
+
+enum AuditAction {
+  LOGIN
+  FAILED_LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  PUBLISH
+  UNPUBLISH
+  SEO_UPDATE
+  AFFILIATE_UPDATE
+  SETTINGS_UPDATE
+  ROLE_CHANGE
+  MEDIA_UPLOAD
+  MEDIA_DELETE
+  TRANSLATION_GENERATED
+  TRANSLATION_PUBLISHED
+  VERSION_UPDATE
+  ROLLBACK
+  BACKUP_CREATED
+}
+
+enum VersionStatus {
+  DRAFT
+  READY
+  APPLIED
+  ROLLED_BACK
+  FAILED
+}
+
+enum BackupType {
+  MANUAL
+  SCHEDULED
+  PRE_UPDATE
+}
+
+enum BackupStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+// -----------------------------------------------------------------
+// Core system: users, roles, permissions
+// -----------------------------------------------------------------
+
+model User {
+  id               String    @id @default(cuid())
+  name             String
+  username         String    @unique
+  email            String    @unique
+  passwordHash     String
+  image            String?
+  bio              String?   @db.Text
+  roleId           String
+  isActive         Boolean   @default(true)
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+  lastLoginAt      DateTime?
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  role           Role            @relation(fields: [roleId], references: [id])
+  auditLogs      AuditLog[]
+  articles       Article[]
+  editorialPosts EditorialPost[]
+  media          Media[]
+  pagesCreated   Page[]          @relation("PageCreatedBy")
+  newsItems      NewsItem[]
+  comparisons    Comparison[]
+  prompts        Prompt[]
+  appVersions    AppVersion[]
+  backups        Backup[]
+  globalSections GlobalSection[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  type        UserRoleType @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// -----------------------------------------------------------------
+// Languages
+// -----------------------------------------------------------------
+
+model Language {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String
+  nativeName String
+  isDefault  Boolean  @default(false)
+  isEnabled  Boolean  @default(true)
+  direction  String   @default("ltr")
+  position   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  pages                      Page[]
+  toolTranslations           ToolTranslation[]
+  categoryTranslations       CategoryTranslation[]
+  articleTranslations        ArticleTranslation[]
+  editorialTranslations      EditorialTranslation[]
+  newsTranslations           NewsTranslation[]
+  comparisonTranslations     ComparisonTranslation[]
+  promptTranslations         PromptTranslation[]
+  promptCategoryTranslations PromptCategoryTranslation[]
+  dealTranslations           DealTranslation[]
+  seoMetadata                SeoMetadata[]
+  menus                      Menu[]
+  subscribers                NewsletterSubscriber[]
+
+  @@map("languages")
+}
+
+// -----------------------------------------------------------------
+// Page builder / CMS
+// -----------------------------------------------------------------
+
+model Page {
+  id             String        @id @default(cuid())
+  languageId     String
+  parentPageId   String?
+  // Groups translated variants of the same logical page (variants share one translationKey)
+  translationKey String        @default(cuid())
+  title          String
+  slug           String
+  fullPath       String?
+  template       String        @default("default")
+  status         ContentStatus @default(DRAFT)
+  isHomepage     Boolean       @default(false)
+  contentOrigin  ContentOrigin @default(HUMAN_WRITTEN)
+  publishedAt    DateTime?
+  scheduledAt    DateTime?
+  createdById    String?
+  updatedById    String?
+  deletedAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  language   Language    @relation(fields: [languageId], references: [id])
+  parentPage Page?       @relation("PageHierarchy", fields: [parentPageId], references: [id])
+  childPages Page[]      @relation("PageHierarchy")
+  createdBy  User?       @relation("PageCreatedBy", fields: [createdById], references: [id])
+  blocks     PageBlock[]
+
+  @@unique([languageId, slug])
+  @@index([status])
+  @@index([translationKey])
+  @@map("pages")
+}
+
+model PageBlock {
+  id              String   @id @default(cuid())
+  pageId          String?
+  globalSectionId String?
+  parentBlockId   String?
+  type            String
+  position        Int      @default(0)
+  settingsJson    Json?
+  contentJson     Json?
+  responsiveJson  Json?
+  isHidden        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  page          Page?          @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  globalSection GlobalSection? @relation(fields: [globalSectionId], references: [id], onDelete: Cascade)
+  parentBlock   PageBlock?     @relation("BlockHierarchy", fields: [parentBlockId], references: [id])
+  childBlocks   PageBlock[]    @relation("BlockHierarchy")
+
+  @@index([pageId, position])
+  @@map("page_blocks")
+}
+
+model GlobalSection {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  description  String?
+  type         String   @default("section")
+  settingsJson Json?
+  contentJson  Json?
+  isActive     Boolean  @default(true)
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdBy User?       @relation(fields: [createdById], references: [id])
+  blocks    PageBlock[]
+
+  @@map("global_sections")
+}
+
+// -----------------------------------------------------------------
+// Media library
+// -----------------------------------------------------------------
+
+model Media {
+  id               String    @id @default(cuid())
+  filename         String
+  originalFilename String
+  mimeType         String
+  size             Int
+  width            Int?
+  height           Int?
+  url              String
+  storageKey       String
+  altText          String?
+  caption          String?
+  title            String?
+  folderId         String?
+  uploadedById     String?
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  folder     MediaFolder? @relation(fields: [folderId], references: [id])
+  uploadedBy User?        @relation(fields: [uploadedById], references: [id])
+
+  toolLogos               Tool[]           @relation("ToolLogo")
+  toolScreenshots         ToolScreenshot[]
+  categoryFeaturedImages  Category[]       @relation("CategoryFeaturedImage")
+  articleFeaturedImages   Article[]        @relation("ArticleFeaturedImage")
+  editorialFeaturedImages EditorialPost[]  @relation("EditorialFeaturedImage")
+  newsFeaturedImages      NewsItem[]       @relation("NewsFeaturedImage")
+  dealImages              Deal[]           @relation("DealImage")
+
+  @@map("media")
+}
+
+model MediaFolder {
+  id             String   @id @default(cuid())
+  name           String
+  parentFolderId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  parentFolder MediaFolder?  @relation("FolderHierarchy", fields: [parentFolderId], references: [id])
+  childFolders MediaFolder[] @relation("FolderHierarchy")
+  media        Media[]
+
+  @@map("media_folders")
+}
+
+// -----------------------------------------------------------------
+// SEO (polymorphic: one table for every content type)
+// -----------------------------------------------------------------
+
+model SeoMetadata {
+  id                    String        @id @default(cuid())
+  entityType            SeoEntityType
+  entityId              String
+  languageId            String
+  metaTitle             String?
+  metaDescription       String?
+  focusKeyword          String?
+  secondaryKeywordsJson Json?
+  canonicalUrl          String?
+  ogTitle               String?
+  ogDescription         String?
+  ogImageId             String?
+  twitterTitle          String?
+  twitterDescription    String?
+  twitterImageId        String?
+  robots                String        @default("index,follow")
+  schemaType            String?
+  schemaJson            Json?
+  includeInSitemap      Boolean       @default(true)
+  priority              Float         @default(0.7)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@unique([entityType, entityId, languageId])
+  @@index([entityType, entityId])
+  @@map("seo_metadata")
+}
+
+// -----------------------------------------------------------------
+// Tool directory
+// -----------------------------------------------------------------
+
+model Tool {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  logoId       String?
+  websiteUrl   String?
+  pricingModel PricingModel  @default(FREEMIUM)
+  hasFreeTrial Boolean       @default(false)
+  hasApi       Boolean       @default(false)
+  isOpenSource Boolean       @default(false)
+  isFeatured   Boolean       @default(false)
+  isTrending   Boolean       @default(false)
+  status       ContentStatus @default(DRAFT)
+  editorRating Float?
+  userRating   Float?
+  createdById  String?
+  updatedById  String?
+  publishedAt  DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  logo            Media?            @relation("ToolLogo", fields: [logoId], references: [id])
+  translations    ToolTranslation[]
+  categories      ToolCategory[]
+  features        ToolFeature[]
+  pricingPlans    ToolPricing[]
+  screenshots     ToolScreenshot[]
+  alternatives    ToolAlternative[] @relation("ToolAlternatives")
+  alternativeOf   ToolAlternative[] @relation("AlternativeTool")
+  affiliateLinks  AffiliateLink[]
+  articleTools    ArticleTool[]
+  comparisonTools ComparisonTool[]
+  newsRelations   NewsRelatedTool[]
+
+  @@index([status])
+  @@map("tools")
+}
+
+model ToolTranslation {
+  id               String        @id @default(cuid())
+  toolId           String
+  languageId       String
+  name             String
+  slug             String
+  shortDescription String?
+  longDescription  String?       @db.Text
+  bestFor          String?
+  whoShouldUseIt   String?       @db.Text
+  whoShouldAvoidIt String?       @db.Text
+  prosJson         Json?
+  consJson         Json?
+  faqJson          Json?
+  useCasesJson     Json?
+  integrationsJson Json?
+  platformsJson    Json?
+  status           ContentStatus @default(DRAFT)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  tool     Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@unique([toolId, languageId])
+  @@index([languageId, slug])
+  @@map("tool_translations")
+}
+
+model Category {
+  id               String        @id @default(cuid())
+  parentCategoryId String?
+  slug             String        @unique
+  icon             String?
+  featuredImageId  String?
+  isFeatured       Boolean       @default(false)
+  position         Int           @default(0)
+  status           ContentStatus @default(PUBLISHED)
+  deletedAt        DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  parentCategory  Category?             @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
+  childCategories Category[]            @relation("CategoryHierarchy")
+  featuredImage   Media?                @relation("CategoryFeaturedImage", fields: [featuredImageId], references: [id])
+  translations    CategoryTranslation[]
+  tools           ToolCategory[]
+
+  @@map("categories")
+}
+
+model CategoryTranslation {
+  id          String   @id @default(cuid())
+  categoryId  String
+  languageId  String
+  name        String
+  slug        String
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@unique([categoryId, languageId])
+  @@index([languageId, slug])
+  @@map("category_translations")
+}
+
+model ToolCategory {
+  id         String   @id @default(cuid())
+  toolId     String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  tool     Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([toolId, categoryId])
+  @@map("tool_categories")
+}
+
+model ToolFeature {
+  id          String   @id @default(cuid())
+  toolId      String
+  name        String
+  description String?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tool Tool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@map("tool_features")
+}
+
+model ToolPricing {
+  id            String   @id @default(cuid())
+  toolId        String
+  planName      String
+  price         Decimal? @db.Decimal(10, 2)
+  currency      String   @default("USD")
+  billingPeriod String   @default("month")
+  featuresJson  Json?
+  isPopular     Boolean  @default(false)
+  position      Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tool Tool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@map("tool_pricing")
+}
+
+model ToolScreenshot {
+  id        String   @id @default(cuid())
+  toolId    String
+  mediaId   String
+  caption   String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  tool  Tool  @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@map("tool_screenshots")
+}
+
+model ToolAlternative {
+  id                String   @id @default(cuid())
+  toolId            String
+  alternativeToolId String
+  reason            String?
+  position          Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  tool            Tool @relation("ToolAlternatives", fields: [toolId], references: [id], onDelete: Cascade)
+  alternativeTool Tool @relation("AlternativeTool", fields: [alternativeToolId], references: [id], onDelete: Cascade)
+
+  @@unique([toolId, alternativeToolId])
+  @@map("tool_alternatives")
+}
+
+// -----------------------------------------------------------------
+// Articles (guides)
+// -----------------------------------------------------------------
+
+model Article {
+  id              String        @id @default(cuid())
+  type            ArticleType   @default(STANDARD)
+  status          ContentStatus @default(DRAFT)
+  contentOrigin   ContentOrigin @default(HUMAN_WRITTEN)
+  authorId        String?
+  featuredImageId String?
+  targetWordCount Int?
+  publishedAt     DateTime?
+  scheduledAt     DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  author         User?                  @relation(fields: [authorId], references: [id])
+  featuredImage  Media?                 @relation("ArticleFeaturedImage", fields: [featuredImageId], references: [id])
+  translations   ArticleTranslation[]
+  tools          ArticleTool[]
+  affiliateLinks ArticleAffiliateLink[]
+
+  @@index([status])
+  @@map("articles")
+}
+
+model ArticleTranslation {
+  id                    String        @id @default(cuid())
+  articleId             String
+  languageId            String
+  title                 String
+  slug                  String
+  excerpt               String?       @db.Text
+  body                  String?       @db.Text
+  faqJson               Json?
+  outlineJson           Json?
+  focusKeyword          String?
+  secondaryKeywordsJson Json?
+  status                ContentStatus @default(DRAFT)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  article  Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@unique([articleId, languageId])
+  @@unique([languageId, slug])
+  @@map("article_translations")
+}
+
+model ArticleTool {
+  id        String   @id @default(cuid())
+  articleId String
+  toolId    String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tool    Tool    @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, toolId])
+  @@map("article_tools")
+}
+
+model ArticleAffiliateLink {
+  id              String   @id @default(cuid())
+  articleId       String
+  affiliateLinkId String
+  position        Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  article       Article       @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  affiliateLink AffiliateLink @relation(fields: [affiliateLinkId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, affiliateLinkId])
+  @@map("article_affiliate_links")
+}
+
+// -----------------------------------------------------------------
+// Editorial — The Varel Brief
+// -----------------------------------------------------------------
+
+model EditorialPost {
+  id              String        @id @default(cuid())
+  authorId        String
+  status          ContentStatus @default(DRAFT)
+  contentOrigin   ContentOrigin @default(HUMAN_WRITTEN)
+  featuredImageId String?
+  publishedAt     DateTime?
+  scheduledAt     DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  author        User                   @relation(fields: [authorId], references: [id])
+  featuredImage Media?                 @relation("EditorialFeaturedImage", fields: [featuredImageId], references: [id])
+  translations  EditorialTranslation[]
+
+  @@index([status])
+  @@map("editorial_posts")
+}
+
+model EditorialTranslation {
+  id              String        @id @default(cuid())
+  editorialPostId String
+  languageId      String
+  title           String
+  slug            String
+  excerpt         String?       @db.Text
+  body            String?       @db.Text
+  predictionText  String?       @db.Text
+  marketImpact    String?       @db.Text
+  category        String?
+  status          ContentStatus @default(DRAFT)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  editorialPost EditorialPost @relation(fields: [editorialPostId], references: [id], onDelete: Cascade)
+  language      Language      @relation(fields: [languageId], references: [id])
+
+  @@unique([editorialPostId, languageId])
+  @@unique([languageId, slug])
+  @@map("editorial_translations")
+}
+
+// -----------------------------------------------------------------
+// News
+// -----------------------------------------------------------------
+
+model NewsItem {
+  id                String        @id @default(cuid())
+  sourceName        String?
+  sourceUrl         String?
+  sourcePublishedAt DateTime?
+  priority          NewsPriority  @default(MEDIUM)
+  status            ContentStatus @default(DRAFT)
+  featuredImageId   String?
+  createdById       String?
+  publishedAt       DateTime?
+  deletedAt         DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  featuredImage Media?            @relation("NewsFeaturedImage", fields: [featuredImageId], references: [id])
+  createdBy     User?             @relation(fields: [createdById], references: [id])
+  translations  NewsTranslation[]
+  relatedTools  NewsRelatedTool[]
+
+  @@index([status])
+  @@map("news_items")
+}
+
+model NewsTranslation {
+  id           String        @id @default(cuid())
+  newsItemId   String
+  languageId   String
+  title        String
+  slug         String
+  summary      String?       @db.Text
+  body         String?       @db.Text
+  whyItMatters String?       @db.Text
+  status       ContentStatus @default(DRAFT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  newsItem NewsItem @relation(fields: [newsItemId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@unique([newsItemId, languageId])
+  @@unique([languageId, slug])
+  @@map("news_translations")
+}
+
+model NewsRelatedTool {
+  id         String   @id @default(cuid())
+  newsItemId String
+  toolId     String
+  createdAt  DateTime @default(now())
+
+  newsItem NewsItem @relation(fields: [newsItemId], references: [id], onDelete: Cascade)
+  tool     Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([newsItemId, toolId])
+  @@map("news_related_tools")
+}
+
+// -----------------------------------------------------------------
+// Comparisons
+// -----------------------------------------------------------------
+
+model Comparison {
+  id          String        @id @default(cuid())
+  status      ContentStatus @default(DRAFT)
+  createdById String?
+  publishedAt DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  createdBy    User?                   @relation(fields: [createdById], references: [id])
+  translations ComparisonTranslation[]
+  tools        ComparisonTool[]
+  rows         ComparisonRow[]
+
+  @@index([status])
+  @@map("comparisons")
+}
+
+model ComparisonTranslation {
+  id           String        @id @default(cuid())
+  comparisonId String
+  languageId   String
+  title        String
+  slug         String
+  summary      String?       @db.Text
+  verdict      String?       @db.Text
+  body         String?       @db.Text
+  faqJson      Json?
+  status       ContentStatus @default(DRAFT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  comparison Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  language   Language   @relation(fields: [languageId], references: [id])
+
+  @@unique([comparisonId, languageId])
+  @@unique([languageId, slug])
+  @@map("comparison_translations")
+}
+
+model ComparisonTool {
+  id             String   @id @default(cuid())
+  comparisonId   String
+  toolId         String
+  position       Int      @default(0)
+  winnerCategory String?
+  createdAt      DateTime @default(now())
+
+  comparison Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  tool       Tool       @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([comparisonId, toolId])
+  @@map("comparison_tools")
+}
+
+model ComparisonRow {
+  id             String   @id @default(cuid())
+  comparisonId   String
+  label          String
+  toolValuesJson Json?
+  position       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  comparison Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+
+  @@map("comparison_rows")
+}
+
+// -----------------------------------------------------------------
+// Prompt library
+// -----------------------------------------------------------------
+
+model PromptCategory {
+  id        String        @id @default(cuid())
+  slug      String        @unique
+  position  Int           @default(0)
+  status    ContentStatus @default(PUBLISHED)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  translations PromptCategoryTranslation[]
+  prompts      Prompt[]
+
+  @@map("prompt_categories")
+}
+
+model PromptCategoryTranslation {
+  id               String   @id @default(cuid())
+  promptCategoryId String
+  languageId       String
+  name             String
+  slug             String
+  description      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  promptCategory PromptCategory @relation(fields: [promptCategoryId], references: [id], onDelete: Cascade)
+  language       Language       @relation(fields: [languageId], references: [id])
+
+  @@unique([promptCategoryId, languageId])
+  @@map("prompt_category_translations")
+}
+
+model Prompt {
+  id          String           @id @default(cuid())
+  categoryId  String?
+  status      ContentStatus    @default(DRAFT)
+  isPremium   Boolean          @default(false)
+  difficulty  PromptDifficulty @default(BEGINNER)
+  createdById String?
+  deletedAt   DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  category     PromptCategory?     @relation(fields: [categoryId], references: [id])
+  createdBy    User?               @relation(fields: [createdById], references: [id])
+  translations PromptTranslation[]
+
+  @@index([status])
+  @@map("prompts")
+}
+
+model PromptTranslation {
+  id                   String        @id @default(cuid())
+  promptId             String
+  languageId           String
+  title                String
+  slug                 String
+  description          String?       @db.Text
+  promptText           String?       @db.Text
+  variablesJson        Json?
+  exampleOutput        String?       @db.Text
+  compatibleModelsJson Json?
+  status               ContentStatus @default(DRAFT)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  prompt   Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@unique([promptId, languageId])
+  @@unique([languageId, slug])
+  @@map("prompt_translations")
+}
+
+// -----------------------------------------------------------------
+// Deals
+// -----------------------------------------------------------------
+
+model Deal {
+  id              String        @id @default(cuid())
+  brandName       String
+  affiliateLinkId String?
+  imageId         String?
+  oldPrice        Decimal?      @db.Decimal(10, 2)
+  newPrice        Decimal?      @db.Decimal(10, 2)
+  currency        String        @default("USD")
+  discountPercent Int?
+  validUntil      DateTime?
+  status          ContentStatus @default(DRAFT)
+  deletedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  affiliateLink AffiliateLink?    @relation(fields: [affiliateLinkId], references: [id])
+  image         Media?            @relation("DealImage", fields: [imageId], references: [id])
+  translations  DealTranslation[]
+
+  @@index([status])
+  @@map("deals")
+}
+
+model DealTranslation {
+  id          String        @id @default(cuid())
+  dealId      String
+  languageId  String
+  title       String
+  slug        String
+  description String?       @db.Text
+  ctaText     String?
+  status      ContentStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  deal     Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@unique([dealId, languageId])
+  @@unique([languageId, slug])
+  @@map("deal_translations")
+}
+
+// -----------------------------------------------------------------
+// Affiliate manager
+// -----------------------------------------------------------------
+
+model AffiliateLink {
+  id                   String              @id @default(cuid())
+  brandName            String
+  entityType           AffiliateEntityType @default(CUSTOM)
+  toolId               String?
+  originalUrl          String?
+  affiliateUrl         String
+  network              AffiliateNetwork    @default(DIRECT)
+  commissionType       String?
+  commissionValue      String?
+  cookieDurationDays   Int?
+  allowedCountriesJson Json?
+  status               AffiliateStatus     @default(ACTIVE)
+  notes                String?             @db.Text
+  lastCheckedAt        DateTime?
+  deletedAt            DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  tool         Tool?                  @relation(fields: [toolId], references: [id])
+  clicks       AffiliateClick[]
+  deals        Deal[]
+  articleLinks ArticleAffiliateLink[]
+
+  @@index([status])
+  @@map("affiliate_links")
+}
+
+model AffiliateClick {
+  id               String   @id @default(cuid())
+  affiliateLinkId  String
+  sourceEntityType String?
+  sourceEntityId   String?
+  languageCode     String?
+  country          String?
+  device           String?
+  referrer         String?
+  userAgent        String?
+  ipHash           String?
+  clickedAt        DateTime @default(now())
+
+  affiliateLink AffiliateLink @relation(fields: [affiliateLinkId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateLinkId, clickedAt])
+  @@map("affiliate_clicks")
+}
+
+// -----------------------------------------------------------------
+// Analytics
+// -----------------------------------------------------------------
+
+model AnalyticsEvent {
+  id           String             @id @default(cuid())
+  type         AnalyticsEventType
+  entityType   String?
+  entityId     String?
+  languageCode String?
+  path         String?
+  country      String?
+  device       String?
+  browser      String?
+  referrer     String?
+  metadataJson Json?
+  sessionId    String?
+  userId       String?
+  createdAt    DateTime           @default(now())
+
+  @@index([type, createdAt])
+  @@index([entityType, entityId])
+  @@map("analytics_events")
+}
+
+model SearchQuery {
+  id           String   @id @default(cuid())
+  query        String
+  languageCode String?
+  resultCount  Int      @default(0)
+  sessionId    String?
+  createdAt    DateTime @default(now())
+
+  @@index([query])
+  @@map("search_queries")
+}
+
+// -----------------------------------------------------------------
+// Newsletter
+// -----------------------------------------------------------------
+
+model NewsletterSubscriber {
+  id          String           @id @default(cuid())
+  email       String           @unique
+  languageId  String?
+  source      String?
+  status      SubscriberStatus @default(PENDING)
+  confirmedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  language Language? @relation(fields: [languageId], references: [id])
+
+  @@map("newsletter_subscribers")
+}
+
+// -----------------------------------------------------------------
+// Settings, branding, menus
+// -----------------------------------------------------------------
+
+model Setting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  valueJson   Json?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model BrandingSetting {
+  id                String    @id @default(cuid())
+  siteName          String    @default("Varel")
+  tagline           String?
+  lightLogoId       String?
+  darkLogoId        String?
+  faviconId         String?
+  appIconId         String?
+  defaultOgImageId  String?
+  primaryColor      String    @default("#2563EB")
+  accentColor       String    @default("#0EA5E9")
+  defaultTheme      ThemeMode @default(LIGHT)
+  enableThemeToggle Boolean   @default(true)
+  fontFamily        String    @default("Inter")
+  borderRadius      String    @default("0.75rem")
+  buttonStyle       String    @default("rounded")
+  socialLinksJson   Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("branding_settings")
+}
+
+model Menu {
+  id         String       @id @default(cuid())
+  name       String
+  location   MenuLocation
+  languageId String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  language Language   @relation(fields: [languageId], references: [id])
+  items    MenuItem[]
+
+  @@unique([location, languageId])
+  @@map("menus")
+}
+
+model MenuItem {
+  id           String   @id @default(cuid())
+  menuId       String
+  parentItemId String?
+  label        String
+  url          String
+  entityType   String?
+  entityId     String?
+  position     Int      @default(0)
+  isExternal   Boolean  @default(false)
+  openInNewTab Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  menu       Menu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  parentItem MenuItem?  @relation("MenuItemHierarchy", fields: [parentItemId], references: [id])
+  childItems MenuItem[] @relation("MenuItemHierarchy")
+
+  @@index([menuId, position])
+  @@map("menu_items")
+}
+
+// -----------------------------------------------------------------
+// Security: audit log, login attempts
+// -----------------------------------------------------------------
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  userId      String?
+  action      AuditAction
+  entityType  String?
+  entityId    String?
+  ipHash      String?
+  userAgent   String?
+  detailsJson Json?
+  createdAt   DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ipHash    String?
+  success   Boolean
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@map("login_attempts")
+}
+
+// -----------------------------------------------------------------
+// Version manager & backups
+// -----------------------------------------------------------------
+
+model AppVersion {
+  id          String        @id @default(cuid())
+  version     String        @unique
+  title       String
+  changelog   String?       @db.Text
+  status      VersionStatus @default(DRAFT)
+  createdById String?
+  createdAt   DateTime      @default(now())
+  appliedAt   DateTime?
+
+  createdBy User?           @relation(fields: [createdById], references: [id])
+  packages  UpdatePackage[]
+
+  @@map("app_versions")
+}
+
+model UpdatePackage {
+  id               String   @id @default(cuid())
+  versionId        String
+  codePatch        String?  @db.Text
+  migrationPatch   String?  @db.Text
+  configPatch      String?  @db.Text
+  validationStatus String?
+  testStatus       String?
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  version AppVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@map("update_packages")
+}
+
+model Backup {
+  id          String       @id @default(cuid())
+  type        BackupType   @default(MANUAL)
+  status      BackupStatus @default(PENDING)
+  storageUrl  String?
+  size        Int?
+  notes       String?
+  createdById String?
+  createdAt   DateTime     @default(now())
+
+  createdBy User? @relation(fields: [createdById], references: [id])
+
+  @@map("backups")
+}
