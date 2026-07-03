@@ -3,7 +3,9 @@ import { getMenu } from "@/lib/content";
 import { getBranding } from "@/lib/settings";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
+import { legalSlug } from "@/lib/legal";
 import { NewsletterForm } from "@/components/blocks/newsletter-form";
+import { ConsentFooterLinks } from "@/components/consent/consent-footer-links";
 
 export async function SiteFooter({ locale }: { locale: Locale }) {
   const [menu, branding] = await Promise.all([
@@ -20,9 +22,9 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
       { label: "Advertise", url: `/${locale}/advertise` },
       { label: "Submit Tool", url: `/${locale}/submit-tool` },
       { label: "Affiliate Disclosure", url: `/${locale}/affiliate-disclosure` },
-      { label: "Privacy Policy", url: `/${locale}/privacy-policy` },
+      { label: "Privacy Policy", url: `/${locale}/${legalSlug("privacy", locale)}` },
       { label: "Terms", url: `/${locale}/terms` },
-      { label: "Cookie Policy", url: `/${locale}/cookie-policy` },
+      { label: "Cookie Policy", url: `/${locale}/${legalSlug("cookie", locale)}` },
     ];
 
   return (
@@ -51,6 +53,7 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
                 {item.label}
               </Link>
             ))}
+            <ConsentFooterLinks locale={locale} />
           </nav>
           <div>
             <div className="text-sm font-semibold">{t.newsletter_title}</div>

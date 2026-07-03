@@ -16,18 +16,47 @@ DATABASE_URL="<neon-pooled-url>" npm run db:seed
 locally with `npx prisma migrate dev --name <change>` (or `db push` + a new
 `migrate diff` file — see docs/UPDATES.md).
 
-## 2. Media storage (Cloudflare R2)
+## 2. Media storage
 
-1. Cloudflare dashboard → R2 → Create bucket (e.g. `varel-media`).
-2. Enable public access for the bucket (or attach a custom domain like
-   `media.varel.com`) → this is `R2_PUBLIC_URL`.
-3. Create an API token with Object Read & Write → `R2_ACCESS_KEY` / `R2_SECRET_KEY`.
-4. `R2_ENDPOINT` = `https://<account-id>.r2.cloudflarestorage.com`.
-5. Add the public host to `images.remotePatterns` in `next.config.ts` if you
-   use a custom domain.
+Varel uses **Vercel Blob** for media uploads in V1. Configure
+`BLOB_READ_WRITE_TOKEN` in Vercel environment variables. Cloudflare R2 is
+supported as a future alternative but is **not required** for the initial
+deployment.
 
-Without R2 configured, uploads fall back to `public/uploads` — this works
-locally but **not** on Vercel (read-only filesystem).
+The provider is chosen with `STORAGE_PROVIDER`:
+
+| Value | Behaviour |
+|---|---|
+| `vercel_blob` (default) | Uploads go to Vercel Blob. Needs `BLOB_READ_WRITE_TOKEN`. |
+| `r2` | Uploads go to Cloudflare R2. Needs the `R2_*` variables. |
+| `disabled` | Uploads are off, but you can still add media by external URL. |
+
+The app never crashes if a provider is unconfigured — the Media Library shows a
+clear warning and external image URLs still work.
+
+### Set up Vercel Blob (recommended)
+
+1. Go to the Vercel dashboard.
+2. Open the **Varel** project.
+3. Go to **Storage**.
+4. Create / connect a **Blob** store.
+5. Copy the Blob **read-write token**.
+6. Add it to Environment Variables as `BLOB_READ_WRITE_TOKEN`.
+7. Set `STORAGE_PROVIDER=vercel_blob`.
+8. Redeploy the project.
+
+Vercel Blob serves from `*.public.blob.vercel-storage.com`, already allowed in
+`next.config.ts` → `images.remotePatterns`.
+
+### Cloudflare R2 (optional, future)
+
+Set `STORAGE_PROVIDER=r2` and provide `R2_ACCESS_KEY`, `R2_SECRET_KEY`,
+`R2_BUCKET_NAME`, `R2_ENDPOINT` (`https://<account-id>.r2.cloudflarestorage.com`)
+and `R2_PUBLIC_URL` (public bucket/custom-domain URL). Add the public host to
+`images.remotePatterns` in `next.config.ts`.
+
+Locally, if `STORAGE_PROVIDER` is unset, uploads fall back to `public/uploads`
+(dev only — not usable on Vercel's read-only filesystem).
 
 ## 3. Vercel
 
@@ -39,7 +68,7 @@ locally but **not** on Vercel (read-only filesystem).
    - `AUTH_URL` = `https://your-domain.com`
    - `AUTH_TRUST_HOST` = `true`
    - `NEXT_PUBLIC_SITE_URL` = `https://your-domain.com`
-   - `R2_*` (see above)
+   - `STORAGE_PROVIDER` = `vercel_blob` and `BLOB_READ_WRITE_TOKEN` (see §2)
    - optional: `GOOGLE_ANALYTICS_ID`, `GOOGLE_TAG_MANAGER_ID`
 4. Deploy.
 
@@ -64,7 +93,7 @@ Point the domain to Vercel (CNAME) — you can keep Cloudflare DNS in front
 
 - [ ] `AUTH_SECRET` is unique and secret
 - [ ] Seed password changed, 2FA enabled for all admin users
-- [ ] R2 configured (media library shows no local-storage warning)
+- [ ] Vercel Blob configured (`STORAGE_PROVIDER=vercel_blob` + `BLOB_READ_WRITE_TOKEN`; Media Library shows no warning)
 - [ ] `NEXT_PUBLIC_SITE_URL` matches the live domain (canonical/hreflang)
 - [ ] Sample `[SAMPLE]` content replaced or archived
 - [ ] Backup schedule in place (docs/BACKUP.md)

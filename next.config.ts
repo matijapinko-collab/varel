@@ -15,7 +15,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
-      // Cloudflare R2 public bucket (adjust to your R2_PUBLIC_URL host after setup)
+      // Vercel Blob (default media provider)
+      { protocol: "https", hostname: "**.public.blob.vercel-storage.com" },
+      // Cloudflare R2 public bucket (optional; adjust to your R2_PUBLIC_URL host)
       { protocol: "https", hostname: "**.r2.dev" },
       { protocol: "https", hostname: "**.r2.cloudflarestorage.com" },
     ],

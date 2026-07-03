@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
 import {
   uploadFile,
+  storageStatus,
   ALLOWED_UPLOAD_TYPES,
   MAX_UPLOAD_BYTES,
 } from "@/lib/storage";
@@ -13,6 +14,15 @@ export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id || !roleCan(session.user.role, "media.manage")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Refuse early with a clear message if the storage provider isn't ready.
+  const status = storageStatus();
+  if (!status.ready) {
+    return NextResponse.json(
+      { error: status.reason ?? "Uploads are not configured." },
+      { status: 503 }
+    );
   }
 
   const formData = await request.formData();
@@ -24,12 +34,15 @@ export async function POST(request: Request) {
   const ext = ALLOWED_UPLOAD_TYPES[file.type];
   if (!ext) {
     return NextResponse.json(
-      { error: `File type not allowed: ${file.type}` },
+      { error: "Unsupported file type. Allowed: JPEG, PNG, WebP, SVG, AVIF." },
       { status: 415 }
     );
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ error: "File too large (max 8 MB)" }, { status: 413 });
+    return NextResponse.json(
+      { error: "This file is too large. Maximum upload size is 5 MB." },
+      { status: 413 }
+    );
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());

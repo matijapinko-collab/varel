@@ -40,7 +40,7 @@ export function MediaUploader() {
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/svg+xml,image/gif,image/x-icon,image/avif"
+        accept="image/jpeg,image/png,image/webp,image/svg+xml,image/avif"
         multiple
         hidden
         onChange={onChange}

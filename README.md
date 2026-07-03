@@ -50,7 +50,7 @@ npm run dev
 | Doc | What it covers |
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, folder structure, key decisions |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Vercel + Neon + R2 production deployment, migrations |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Vercel + Postgres + Vercel Blob production deployment, migrations |
 | [docs/SECURITY.md](docs/SECURITY.md) | Auth, 2FA, RBAC, audit log, headers, rate limiting |
 | [docs/UPDATES.md](docs/UPDATES.md) | Safe update workflow with the Version Manager |
 | [docs/BACKUP.md](docs/BACKUP.md) | Database backup & restore |
