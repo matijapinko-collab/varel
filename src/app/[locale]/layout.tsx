@@ -12,6 +12,9 @@ import { getBranding } from "@/lib/settings";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { TrackView } from "@/components/analytics/track-view";
+import { GoogleScripts } from "@/components/analytics/google-scripts";
+import { CookieBanner } from "@/components/layout/cookie-banner";
+import { getSetting } from "@/lib/settings";
 import "../globals.css";
 
 const inter = Inter({
@@ -47,9 +50,10 @@ export default async function LocaleLayout(props: LayoutProps<"/[locale]">) {
   const { locale } = await props.params;
   if (!isLocale(locale)) notFound();
 
-  const [cookieStore, branding] = await Promise.all([
+  const [cookieStore, branding, cookieBannerEnabled] = await Promise.all([
     cookies(),
     getBranding().catch(() => null),
+    getSetting<boolean>("cookie_banner_enabled").catch(() => true),
   ]);
 
   const themeCookie = cookieStore.get(THEME_COOKIE)?.value;
@@ -70,10 +74,21 @@ export default async function LocaleLayout(props: LayoutProps<"/[locale]">) {
       suppressHydrationWarning
     >
       <body className="flex min-h-screen flex-col bg-background text-foreground">
+        <GoogleScripts />
         <TrackView type="PAGE_VIEW" locale={locale} />
         <SiteHeader locale={locale as Locale} />
         <main className="flex-1">{props.children}</main>
         <SiteFooter locale={locale as Locale} />
+        {(cookieBannerEnabled ?? true) && (
+          <CookieBanner
+            text={
+              locale === "hr"
+                ? "Koristimo kolačiće za analitiku i poboljšanje stranice."
+                : "We use cookies for analytics and to improve the site."
+            }
+            accept={locale === "hr" ? "U redu" : "OK"}
+          />
+        )}
       </body>
     </html>
   );
