@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<p align="center">
+  <img src="public/branding/varel-logo.jpeg" alt="Varel" width="280" />
+</p>
 
-## Getting Started
+# Varel
 
-First, run the development server:
+**Find the right tools for modern work.** A premium multilingual technology
+discovery platform: AI/software directory, comparisons, SEO guides, founder
+editorial (The Varel Brief), news, prompt library, deals hub and central
+affiliate manager — all fully editable from the admin dashboard.
+
+Built with **Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · PostgreSQL ·
+Prisma 7 · Auth.js**, deployed on **Vercel**.
+
+---
+
+## Quick start (local development)
 
 ```bash
+# 1. Install dependencies (also generates the Prisma client)
+npm install
+
+# 2. Start the local Postgres dev server (keep it running in its own terminal)
+npm run db:dev
+#    → copy the printed DATABASE_URL / SHADOW_DATABASE_URL into .env
+#    (see .env.example for the full list of variables)
+
+# 3. Create the tables and seed initial data
+npm run db:push
+npm run db:seed
+
+# 4. Start the app
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Public site: http://localhost:3000 (redirects to `/en`, `/hr`, …)
+- Admin: http://localhost:3000/admin
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Admin login (from seed)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| | |
+|---|---|
+| Username | `mpinko` (or email `matija.pinko@hotmail.com`) |
+| Password | `Zaporka321#` |
 
-## Learn More
+> **Change this password in production** (Admin → Users) and enable 2FA.
 
-To learn more about Next.js, take a look at the following resources:
+## Documentation
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Doc | What it covers |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, folder structure, key decisions |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Vercel + Neon + R2 production deployment, migrations |
+| [docs/SECURITY.md](docs/SECURITY.md) | Auth, 2FA, RBAC, audit log, headers, rate limiting |
+| [docs/UPDATES.md](docs/UPDATES.md) | Safe update workflow with the Version Manager |
+| [docs/BACKUP.md](docs/BACKUP.md) | Database backup & restore |
+| [docs/CONTENT-GUIDE.md](docs/CONTENT-GUIDE.md) | How to manage content in the admin (for the owner) |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## npm scripts
 
-## Deploy on Vercel
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Development server |
+| `npm run build` / `npm start` | Production build / serve |
+| `npm run db:dev` | Local Postgres (Prisma dev server) |
+| `npm run db:push` | Sync schema to the database (development) |
+| `npm run db:seed` | Seed languages, roles, owner user, categories, menus, homepage, sample content |
+| `npm run db:generate` | Regenerate the Prisma client |
+| `npm run db:studio` | Browse the database in Prisma Studio |
+| `npm run lint` | ESLint |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Feature map
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Public site** (`/en`, `/hr`, `/de`, `/fr`, `/it`, `/es`, later `/zh`, `/hi`):
+  homepage from the page builder, tool directory + detail pages, categories,
+  comparisons, guides, The Varel Brief editorial, news, prompt library with
+  copy-tracking, deals, site-wide search, CMS pages (about/legal/…),
+  light/dark theme, sitemap + robots + hreflang + JSON-LD.
+- **Admin** (`/admin`): dashboard with KPIs, page builder, all content modules
+  with per-language translations and per-language SEO fields, media library
+  (R2), central affiliate manager with `/go/<id>` click tracking, SEO manager,
+  translation manager (Croatian-first workflow), internal analytics, newsletter
+  subscribers + CSV export, users & roles & 2FA, audit log, version manager,
+  settings and branding (logo upload).
+
+## Important conventions (for future Claude sessions)
+
+1. **Nothing public is hardcoded** — text, menus, SEO, affiliate URLs and
+   branding all come from the database. Keep it that way.
+2. **Affiliate links** are only referenced through `/go/<affiliateLinkId>`.
+3. **Content is created in Croatian first**, then translated via the
+   Translation Manager (drafts are never auto-published).
+4. All admin mutations go through `src/server/actions/*` and must call
+   `requirePermission()` and `audit()`.
+5. This project uses **Next.js 16**: async `params`/`searchParams`/`cookies`,
+   `proxy.ts` instead of middleware, Turbopack, no `next lint`. Read
+   `node_modules/next/dist/docs/` before large changes.
+6. Prisma 7: client generated to `src/generated/prisma`, instantiated with the
+   `@prisma/adapter-pg` driver adapter (`src/lib/db.ts`), config in
+   `prisma.config.ts`.
