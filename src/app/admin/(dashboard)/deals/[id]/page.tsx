@@ -7,6 +7,7 @@ import {
   Input,
   Textarea,
   Select,
+  Checkbox,
   SubmitButton,
   FormSection,
   StatusBadge,
@@ -19,15 +20,19 @@ export default async function EditDealPage(props: PageProps<"/admin/deals/[id]">
   const searchParams = await props.searchParams;
   const langCode = typeof searchParams.lang === "string" ? searchParams.lang : "hr";
 
-  const [deal, languages, affiliateLinks] = await Promise.all([
+  const [deal, languages, affiliateLinks, products, partners, offers] = await Promise.all([
     db.deal.findUnique({
       where: { id },
       include: { translations: { include: { language: true } } },
     }),
     db.language.findMany({ where: { isEnabled: true }, orderBy: { position: "asc" } }),
-    db.affiliateLink.findMany({
-      where: { deletedAt: null },
-      orderBy: { brandName: "asc" },
+    db.affiliateLink.findMany({ where: { deletedAt: null }, orderBy: { brandName: "asc" } }),
+    db.tool.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    db.affiliatePartner.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    db.productOffer.findMany({
+      where: { isActive: true },
+      include: { partner: true, tool: true },
+      orderBy: { updatedAt: "desc" },
     }),
   ]);
   if (!deal) notFound();
@@ -84,6 +89,44 @@ export default async function EditDealPage(props: PageProps<"/admin/deals/[id]">
               />
             </Field>
           </div>
+        </FormSection>
+
+        <FormSection title="Best Deals — product, offer & partner">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Product (review)" hint="Link this deal to a directory product">
+              <Select name="productId" defaultValue={deal.productId ?? ""}>
+                <option value="">— none —</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Offer" hint="Best offer this deal points to (CTA target)">
+              <Select name="offerId" defaultValue={deal.offerId ?? ""}>
+                <option value="">— none —</option>
+                {offers.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.tool.name} · {o.merchantName ?? o.partner.name} · {o.currency} {o.currentPrice ? String(o.currentPrice) : "?"}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Partner">
+              <Select name="partnerId" defaultValue={deal.partnerId ?? ""}>
+                <option value="">— none —</option>
+                {partners.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Starts at">
+              <Input name="startsAt" type="date" defaultValue={deal.startsAt ? deal.startsAt.toISOString().slice(0, 10) : ""} />
+            </Field>
+            <Field label="Ends at" hint="After this date the deal is treated as expired">
+              <Input name="endsAt" type="date" defaultValue={deal.endsAt ? deal.endsAt.toISOString().slice(0, 10) : ""} />
+            </Field>
+          </div>
+          <Checkbox name="isFeatured" label="Featured on Best Deals + homepage" defaultChecked={deal.isFeatured} />
         </FormSection>
 
         <FormSection title={`Content — ${language.nativeName}`}>

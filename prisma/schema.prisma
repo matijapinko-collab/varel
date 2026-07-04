@@ -404,6 +404,7 @@ model Media {
   editorialFeaturedImages EditorialPost[]  @relation("EditorialFeaturedImage")
   newsFeaturedImages      NewsItem[]       @relation("NewsFeaturedImage")
   dealImages              Deal[]           @relation("DealImage")
+  partnerLogos            AffiliatePartner[] @relation("PartnerLogo")
 
   @@map("media")
 }
@@ -495,6 +496,8 @@ model Tool {
   articleTools    ArticleTool[]
   comparisonTools ComparisonTool[]
   newsRelations   NewsRelatedTool[]
+  offers          ProductOffer[]
+  dealsAsProduct  Deal[]            @relation("DealProduct")
 
   @@index([status])
   @@map("tools")
@@ -990,21 +993,34 @@ model Deal {
   brandName       String
   affiliateLinkId String?
   imageId         String?
+  // Best Deals module: a deal can be tied to a catalogue product (Tool), a
+  // specific ProductOffer and the affiliate partner behind it.
+  productId       String?
+  offerId         String?
+  partnerId       String?
   oldPrice        Decimal?      @db.Decimal(10, 2)
   newPrice        Decimal?      @db.Decimal(10, 2)
-  currency        String        @default("USD")
+  currency        String        @default("EUR")
   discountPercent Int?
+  isFeatured      Boolean       @default(false)
+  startsAt        DateTime?
   validUntil      DateTime?
+  endsAt          DateTime?
   status          ContentStatus @default(DRAFT)
+  publishedAt     DateTime?
   deletedAt       DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   affiliateLink AffiliateLink?    @relation(fields: [affiliateLinkId], references: [id])
   image         Media?            @relation("DealImage", fields: [imageId], references: [id])
+  product       Tool?             @relation("DealProduct", fields: [productId], references: [id])
+  offer         ProductOffer?     @relation(fields: [offerId], references: [id])
+  partner       AffiliatePartner? @relation(fields: [partnerId], references: [id])
   translations  DealTranslation[]
 
   @@index([status])
+  @@index([isFeatured])
   @@map("deals")
 }
 
@@ -1294,4 +1310,97 @@ model Backup {
   createdBy User? @relation(fields: [createdById], references: [id])
 
   @@map("backups")
+}
+
+// -----------------------------------------------------------------
+// Best Deals: affiliate partners, product offers, price history
+// -----------------------------------------------------------------
+
+enum PartnerType {
+  DIRECT
+  NETWORK
+  MARKETPLACE
+  RETAILER
+}
+
+enum OfferAvailability {
+  IN_STOCK
+  OUT_OF_STOCK
+  LIMITED
+  PREORDER
+  UNKNOWN
+}
+
+model AffiliatePartner {
+  id                    String      @id @default(cuid())
+  name                  String
+  slug                  String      @unique
+  logoId                String?
+  websiteUrl            String?
+  affiliateNetwork      String?
+  partnerType           PartnerType @default(DIRECT)
+  defaultTrackingParams String?
+  contactEmail          String?
+  priority              Int         @default(0)
+  isActive              Boolean     @default(true)
+  notes                 String?     @db.Text
+  deletedAt             DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  logo   Media?         @relation("PartnerLogo", fields: [logoId], references: [id])
+  offers ProductOffer[]
+  deals  Deal[]
+
+  @@map("affiliate_partners")
+}
+
+model ProductOffer {
+  id                String            @id @default(cuid())
+  toolId            String
+  partnerId         String
+  merchantName      String?
+  productUrl        String?
+  affiliateUrl      String
+  currentPrice      Decimal?          @db.Decimal(10, 2)
+  oldPrice          Decimal?          @db.Decimal(10, 2)
+  currency          String            @default("EUR")
+  couponCode        String?
+  couponDescription String?
+  shippingCost      Decimal?          @db.Decimal(10, 2)
+  availability      OfferAvailability @default(UNKNOWN)
+  validFrom         DateTime?
+  validUntil        DateTime?
+  lastCheckedAt     DateTime?
+  manuallyVerified  Boolean           @default(false)
+  sponsored         Boolean           @default(false)
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  tool         Tool             @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  partner      AffiliatePartner @relation(fields: [partnerId], references: [id])
+  priceHistory PriceHistory[]
+  deals        Deal[]
+
+  @@index([toolId])
+  @@index([partnerId])
+  @@map("product_offers")
+}
+
+model PriceHistory {
+  id           String            @id @default(cuid())
+  offerId      String
+  toolId       String?
+  partnerId    String?
+  price        Decimal?          @db.Decimal(10, 2)
+  oldPrice     Decimal?          @db.Decimal(10, 2)
+  currency     String            @default("EUR")
+  availability OfferAvailability @default(UNKNOWN)
+  checkedAt    DateTime          @default(now())
+
+  offer ProductOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId, checkedAt])
+  @@map("price_history")
 }

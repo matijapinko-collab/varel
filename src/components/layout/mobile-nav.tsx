@@ -6,7 +6,9 @@ import { Menu, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
 import { premiumEase } from "@/lib/animations";
 
-export function MobileNav({ items }: { items: { label: string; url: string }[] }) {
+type MobileNavItem = { label: string; url: string; children?: { label: string; url: string }[] };
+
+export function MobileNav({ items }: { items: MobileNavItem[] }) {
   const [open, setOpen] = useState(false);
   const reduce = useReducedMotion();
 
@@ -77,6 +79,20 @@ export function MobileNav({ items }: { items: { label: string; url: string }[] }
                   >
                     {item.label}
                   </Link>
+                  {item.children && item.children.length > 0 && (
+                    <div className="ml-3 border-l border-border pl-2">
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.url + child.label}
+                          href={child.url}
+                          onClick={() => setOpen(false)}
+                          className="block rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-soft hover:text-foreground"
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               ))}
             </motion.nav>

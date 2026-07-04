@@ -49,6 +49,7 @@ export function proxy(request: NextRequest) {
   if (
     pathname.startsWith("/api") ||
     pathname.startsWith("/go/") ||
+    pathname.startsWith("/o/") ||
     pathname.startsWith("/_next") ||
     pathname === "/robots.txt" ||
     pathname.startsWith("/sitemap") ||

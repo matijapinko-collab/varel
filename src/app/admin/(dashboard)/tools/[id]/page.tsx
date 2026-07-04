@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { saveTool } from "@/server/actions/tools";
@@ -49,6 +50,12 @@ export default async function EditToolPage(
     <div>
       <PageHeader title={`Edit tool: ${tool.name}`}>
         <StatusBadge status={tool.status} />
+        <Link
+          href={`/admin/tools/${tool.id}/offers`}
+          className="rounded-full border border-border bg-card px-4 py-2 text-sm font-medium hover:border-primary hover:text-primary"
+        >
+          Manage offers
+        </Link>
       </PageHeader>
 
       <form action={action} className="space-y-6">

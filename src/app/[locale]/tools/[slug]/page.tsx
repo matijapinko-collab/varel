@@ -10,6 +10,9 @@ import { db } from "@/lib/db";
 import { FaqAccordion } from "@/components/blocks/faq-accordion";
 import { ToolCard, type ToolCardData } from "@/components/cards/tool-card";
 import { TrackView } from "@/components/analytics/track-view";
+import { ToolOffers } from "@/components/blocks/tool-offers";
+import { getToolOffers } from "@/lib/deals-data";
+import { productOfferJsonLd } from "@/lib/deals-schema";
 import { buildSeoMetadata, JsonLd, faqJsonLd } from "@/lib/seo";
 
 async function getTool(locale: Locale, slug: string) {
@@ -100,10 +103,21 @@ export default async function ToolPage(props: PageProps<"/[locale]/tools/[slug]"
   const affiliate = tool.affiliateLinks[0];
   const ctaHref = affiliate ? `/go/${affiliate.id}` : tool.websiteUrl ?? "#";
 
+  // Product / Offer / AggregateOffer structured data from active offers.
+  const { offers } = await getToolOffers(tool.id);
+  const productLd = productOfferJsonLd({
+    name,
+    description: tr?.shortDescription ?? undefined,
+    imageUrl: tool.logo?.url,
+    rating: tool.editorRating,
+    offers,
+  });
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <TrackView type="TOOL_VIEW" entityType="TOOL" entityId={tool.id} locale={locale} />
       {faq.length > 0 && <JsonLd data={faqJsonLd(faq)} />}
+      {productLd && <JsonLd data={productLd} />}
 
       {/* Hero */}
       <div className="flex flex-col gap-6 rounded-card border border-border bg-card p-6 sm:flex-row sm:items-center sm:p-8">
@@ -162,6 +176,9 @@ export default async function ToolPage(props: PageProps<"/[locale]/tools/[slug]"
       {affiliate && (
         <p className="mt-3 text-xs text-muted">{t.affiliate_disclosure_short}</p>
       )}
+
+      {/* Best current deal + offer comparison (renders nothing if no offers) */}
+      <ToolOffers toolId={tool.id} locale={locale} />
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0">

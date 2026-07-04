@@ -180,6 +180,16 @@ export const BLOCK_SCHEMAS: BlockSchema[] = [
     ],
   },
   {
+    type: "best_deals",
+    label: "Best Deals",
+    description: "Best partner offers as rich deal cards (from the Best Deals module).",
+    fields: [
+      { key: "title", label: "Section title", kind: "text", target: "content" },
+      { key: "limit", label: "Number of deals", kind: "number", target: "settings" },
+      { key: "featured", label: "Only featured deals", kind: "boolean", target: "settings" },
+    ],
+  },
+  {
     type: "newsletter",
     label: "Newsletter signup",
     description: "Email capture panel.",

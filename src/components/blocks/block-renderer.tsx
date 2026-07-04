@@ -4,7 +4,9 @@ import { db } from "@/lib/db";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import { getPublishedTools, getCategories, getLanguage } from "@/lib/content";
+import { getBestDeals } from "@/lib/deals-data";
 import { ToolCard, type ToolCardData } from "@/components/cards/tool-card";
+import { DealCard, type DealCardData } from "@/components/cards/deal-card";
 import { SearchBar } from "./search-bar";
 import { NewsletterForm } from "./newsletter-form";
 import { FaqAccordion } from "./faq-accordion";
@@ -463,6 +465,27 @@ async function Block({ block, locale }: { block: BlockData; locale: Locale }) {
                   <p className="mt-1 line-clamp-2 text-sm text-muted">{d.description}</p>
                 )}
               </Link>
+            ))}
+          </div>
+        </SectionWrap>
+      );
+    }
+
+    case "best_deals": {
+      const deals = await getBestDeals(locale, {
+        featured: s.featured === true || s.featured === "true" ? true : undefined,
+        take: num(s, "limit", 6),
+      });
+      if (!deals.length) return null;
+      return (
+        <SectionWrap
+          title={str(c, "title", t.best_deals_title)}
+          viewAllUrl={`/${locale}/best-deals`}
+          viewAllLabel={t.view_all_deals}
+        >
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {deals.map((deal) => (
+              <DealCard key={deal.id} deal={deal as unknown as DealCardData} locale={locale} />
             ))}
           </div>
         </SectionWrap>

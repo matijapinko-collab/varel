@@ -1,0 +1,157 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { audit } from "@/lib/security";
+import { requirePermission, slugify, fd, fdBool, fdNum } from "./helpers";
+import type { OfferAvailability, PartnerType } from "@/generated/prisma/client";
+
+/* ---------------- Affiliate partners ---------------- */
+
+export async function createAffiliatePartner(form: FormData) {
+  const { userId } = await requirePermission("affiliate.manage");
+  const name = fd(form, "name");
+  if (!name) throw new Error("Name is required");
+  const partner = await db.affiliatePartner.create({
+    data: { name, slug: slugify(fd(form, "slug") || name) },
+  });
+  await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "PARTNER", entityId: partner.id, details: { created: true } });
+  redirect(`/admin/affiliate-partners/${partner.id}`);
+}
+
+export async function saveAffiliatePartner(partnerId: string, form: FormData) {
+  const { userId } = await requirePermission("affiliate.manage");
+  await db.affiliatePartner.update({
+    where: { id: partnerId },
+    data: {
+      name: fd(form, "name"),
+      slug: slugify(fd(form, "slug") || fd(form, "name")),
+      websiteUrl: fd(form, "websiteUrl") || null,
+      affiliateNetwork: fd(form, "affiliateNetwork") || null,
+      partnerType: (fd(form, "partnerType") || "DIRECT") as PartnerType,
+      defaultTrackingParams: fd(form, "defaultTrackingParams") || null,
+      contactEmail: fd(form, "contactEmail") || null,
+      priority: fdNum(form, "priority") ?? 0,
+      isActive: fdBool(form, "isActive"),
+      notes: fd(form, "notes") || null,
+      logoId: fd(form, "logoId") || null,
+    },
+  });
+  await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "PARTNER", entityId: partnerId });
+  revalidatePath("/admin/affiliate-partners");
+  revalidatePath("/", "layout");
+}
+
+export async function deleteAffiliatePartner(partnerId: string) {
+  const { userId } = await requirePermission("affiliate.manage");
+  await db.affiliatePartner.update({
+    where: { id: partnerId },
+    data: { deletedAt: new Date(), isActive: false },
+  });
+  await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "PARTNER", entityId: partnerId, details: { deleted: true } });
+  revalidatePath("/admin/affiliate-partners");
+}
+
+/* ---------------- Product offers ---------------- */
+
+export async function createOffer(toolId: string, form: FormData) {
+  const { userId } = await requirePermission("affiliate.manage");
+  const partnerId = fd(form, "partnerId");
+  const affiliateUrl = fd(form, "affiliateUrl");
+  if (!partnerId || !affiliateUrl) throw new Error("Partner and affiliate URL are required");
+  const offer = await db.productOffer.create({
+    data: {
+      toolId,
+      partnerId,
+      merchantName: fd(form, "merchantName") || null,
+      productUrl: fd(form, "productUrl") || null,
+      affiliateUrl,
+      currentPrice: fdNum(form, "currentPrice"),
+      oldPrice: fdNum(form, "oldPrice"),
+      currency: fd(form, "currency") || "EUR",
+      couponCode: fd(form, "couponCode") || null,
+      couponDescription: fd(form, "couponDescription") || null,
+      shippingCost: fdNum(form, "shippingCost"),
+      availability: (fd(form, "availability") || "UNKNOWN") as OfferAvailability,
+      manuallyVerified: fdBool(form, "manuallyVerified"),
+      sponsored: fdBool(form, "sponsored"),
+      isActive: fdBool(form, "isActive"),
+      lastCheckedAt: new Date(),
+    },
+  });
+  // Seed the first price-history point.
+  await db.priceHistory.create({
+    data: {
+      offerId: offer.id,
+      toolId,
+      partnerId,
+      price: offer.currentPrice,
+      oldPrice: offer.oldPrice,
+      currency: offer.currency,
+      availability: offer.availability,
+    },
+  });
+  await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "OFFER", entityId: offer.id, details: { created: true } });
+  revalidatePath(`/admin/tools/${toolId}/offers`);
+  revalidatePath("/", "layout");
+}
+
+export async function saveOffer(offerId: string, form: FormData) {
+  const { userId } = await requirePermission("affiliate.manage");
+  const prev = await db.productOffer.findUnique({ where: { id: offerId } });
+  if (!prev) throw new Error("Offer not found");
+
+  const currentPrice = fdNum(form, "currentPrice");
+  const availability = (fd(form, "availability") || "UNKNOWN") as OfferAvailability;
+
+  const offer = await db.productOffer.update({
+    where: { id: offerId },
+    data: {
+      partnerId: fd(form, "partnerId") || prev.partnerId,
+      merchantName: fd(form, "merchantName") || null,
+      productUrl: fd(form, "productUrl") || null,
+      affiliateUrl: fd(form, "affiliateUrl") || prev.affiliateUrl,
+      currentPrice,
+      oldPrice: fdNum(form, "oldPrice"),
+      currency: fd(form, "currency") || "EUR",
+      couponCode: fd(form, "couponCode") || null,
+      couponDescription: fd(form, "couponDescription") || null,
+      shippingCost: fdNum(form, "shippingCost"),
+      availability,
+      manuallyVerified: fdBool(form, "manuallyVerified"),
+      sponsored: fdBool(form, "sponsored"),
+      isActive: fdBool(form, "isActive"),
+      lastCheckedAt: new Date(),
+    },
+  });
+
+  // Record a price-history point when the price or availability changed.
+  const changed =
+    String(prev.currentPrice) !== String(offer.currentPrice) ||
+    prev.availability !== offer.availability;
+  if (changed) {
+    await db.priceHistory.create({
+      data: {
+        offerId: offer.id,
+        toolId: offer.toolId,
+        partnerId: offer.partnerId,
+        price: offer.currentPrice,
+        oldPrice: offer.oldPrice,
+        currency: offer.currency,
+        availability: offer.availability,
+      },
+    });
+  }
+  await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "OFFER", entityId: offerId });
+  revalidatePath(`/admin/tools/${offer.toolId}/offers`);
+  revalidatePath("/", "layout");
+}
+
+export async function deleteOffer(offerId: string) {
+  const { userId } = await requirePermission("affiliate.manage");
+  const offer = await db.productOffer.delete({ where: { id: offerId } });
+  await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "OFFER", entityId: offerId, details: { deleted: true } });
+  revalidatePath(`/admin/tools/${offer.toolId}/offers`);
+  revalidatePath("/", "layout");
+}

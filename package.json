@@ -13,7 +13,8 @@
     "db:studio": "prisma studio",
     "db:dev": "prisma dev",
     "postinstall": "prisma generate",
-    "db:seed:legal": "tsx prisma/seed-legal.ts"
+    "db:seed:legal": "tsx prisma/seed-legal.ts",
+    "db:seed:gadgets": "tsx prisma/seed-gadgets.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1079.0",

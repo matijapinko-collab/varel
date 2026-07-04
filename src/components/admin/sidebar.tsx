@@ -13,6 +13,7 @@ import {
   Newspaper,
   MessageSquareText,
   BadgePercent,
+  Store,
   Link2,
   Image as ImageIcon,
   Menu as MenuIcon,
@@ -49,12 +50,13 @@ const GROUPS: {
       { href: "/admin/editorial", label: "Editorial", icon: PenLine },
       { href: "/admin/news", label: "News", icon: Newspaper },
       { href: "/admin/prompts", label: "Prompts", icon: MessageSquareText },
-      { href: "/admin/deals", label: "Deals", icon: BadgePercent },
     ],
   },
   {
     label: "Monetization",
     items: [
+      { href: "/admin/deals", label: "Best Deals", icon: BadgePercent },
+      { href: "/admin/affiliate-partners", label: "Affiliate Partners", icon: Store },
       { href: "/admin/affiliate", label: "Affiliate Manager", icon: Link2 },
     ],
   },

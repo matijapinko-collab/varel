@@ -349,6 +349,9 @@ export async function createDeal(form: FormData) {
 export async function saveDeal(dealId: string, languageId: string, form: FormData) {
   const { userId } = await requirePermission("content.edit");
   const validUntil = fd(form, "validUntil");
+  const startsAt = fd(form, "startsAt");
+  const endsAt = fd(form, "endsAt");
+  const status = (fd(form, "status") || "DRAFT") as ContentStatus;
 
   await db.deal.update({
     where: { id: dealId },
@@ -356,12 +359,19 @@ export async function saveDeal(dealId: string, languageId: string, form: FormDat
       brandName: fd(form, "brandName"),
       affiliateLinkId: fd(form, "affiliateLinkId") || null,
       imageId: fd(form, "imageId") || null,
+      productId: fd(form, "productId") || null,
+      offerId: fd(form, "offerId") || null,
+      partnerId: fd(form, "partnerId") || null,
       oldPrice: fdNum(form, "oldPrice"),
       newPrice: fdNum(form, "newPrice"),
-      currency: fd(form, "currency") || "USD",
+      currency: fd(form, "currency") || "EUR",
       discountPercent: fdNum(form, "discountPercent"),
+      isFeatured: fdBool(form, "isFeatured"),
+      startsAt: startsAt ? new Date(startsAt) : null,
+      endsAt: endsAt ? new Date(endsAt) : validUntil ? new Date(validUntil) : null,
       validUntil: validUntil ? new Date(validUntil) : null,
-      status: (fd(form, "status") || "DRAFT") as ContentStatus,
+      status,
+      publishedAt: status === "PUBLISHED" ? new Date() : undefined,
     },
   });
 
