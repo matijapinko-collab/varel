@@ -3,6 +3,7 @@ import { ExternalLink } from "lucide-react";
 import type { Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { getToolOffers, getPriceContext } from "@/lib/deals-data";
+import { PriceHistoryChart } from "./price-history-chart";
 import { dealScore, discountPercent, formatPrice, isAvailable, type OfferInput } from "@/lib/deals";
 import { AffiliateDisclosure } from "./affiliate-disclosure";
 
@@ -39,7 +40,9 @@ export async function ToolOffers({ toolId, locale }: { toolId: string; locale: L
     partner: o.partner ? { priority: o.partner.priority } : null,
   });
 
-  const bestScore = dealScore(asInput(best));
+  const bestScore = dealScore(asInput(best), {
+    lowest30d: priceContext?.lowest30d ?? null,
+  });
   const bestDiscount = discountPercent(best);
 
   return (
@@ -162,6 +165,9 @@ export async function ToolOffers({ toolId, locale }: { toolId: string; locale: L
           </table>
         </div>
       )}
+
+      {/* Price history chart (Phase 3) — renders once ≥2 daily points exist */}
+      <PriceHistoryChart toolId={toolId} locale={locale} />
 
       <AffiliateDisclosure locale={locale} className="mt-3" />
     </section>

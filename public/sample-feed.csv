@@ -1,0 +1,2 @@
+tool_slug,partner_slug,affiliate_url,merchant_name,current_price,old_price,currency,coupon_code,shipping_cost,availability,active
+sample-robot-vacuum,sample-partner,https://example.com/product?ref=varel-sample,Sample Partner,559.00,699.00,EUR,SAVE20,0,in_stock,true

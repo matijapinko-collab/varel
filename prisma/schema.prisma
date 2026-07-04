@@ -1340,6 +1340,11 @@ model AffiliatePartner {
   affiliateNetwork      String?
   partnerType           PartnerType @default(DIRECT)
   defaultTrackingParams String?
+  // Official CSV datafeed URL for automated imports (Phase 3). Fetched by the
+  // daily cron and the "Fetch feed now" admin action. Same columns as the
+  // manual CSV import.
+  feedUrl               String?
+  lastFeedFetchAt       DateTime?
   contactEmail          String?
   priority              Int         @default(0)
   isActive              Boolean     @default(true)

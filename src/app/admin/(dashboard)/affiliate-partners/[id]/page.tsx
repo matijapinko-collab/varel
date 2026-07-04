@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { saveAffiliatePartner } from "@/server/actions/deals";
+import { saveAffiliatePartner, fetchFeedNow } from "@/server/actions/deals";
 import {
   PageHeader,
   Field,
@@ -19,7 +19,18 @@ export default async function EditPartnerPage(props: PageProps<"/admin/affiliate
 
   return (
     <div>
-      <PageHeader title={`Partner: ${partner.name}`} />
+      <PageHeader title={`Partner: ${partner.name}`}>
+        {partner.feedUrl && (
+          <form action={fetchFeedNow.bind(null, partner.id)}>
+            <button
+              type="submit"
+              className="rounded-full border border-border bg-card px-4 py-2 text-sm font-medium hover:border-primary hover:text-primary"
+            >
+              ⟳ Fetch feed now
+            </button>
+          </form>
+        )}
+      </PageHeader>
       <form action={saveAffiliatePartner.bind(null, partner.id)} className="max-w-2xl space-y-6">
         <FormSection title="Partner details">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -54,6 +65,12 @@ export default async function EditPartnerPage(props: PageProps<"/admin/affiliate
           </div>
           <Field label="Default tracking params" hint="Appended to affiliate URLs, e.g. utm_source=varel&subid=deals">
             <Input name="defaultTrackingParams" defaultValue={partner.defaultTrackingParams ?? ""} />
+          </Field>
+          <Field
+            label="CSV feed URL (optional)"
+            hint={`Official datafeed URL (https, CSV, same columns as the import template). Fetched automatically by the daily update${partner.lastFeedFetchAt ? ` · last fetched ${partner.lastFeedFetchAt.toLocaleString()}` : ""}`}
+          >
+            <Input name="feedUrl" type="url" defaultValue={partner.feedUrl ?? ""} placeholder="https://network.example.com/feed.csv" />
           </Field>
           <Field label="Notes">
             <Textarea name="notes" defaultValue={partner.notes ?? ""} rows={3} />

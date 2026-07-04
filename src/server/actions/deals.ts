@@ -31,6 +31,7 @@ export async function saveAffiliatePartner(partnerId: string, form: FormData) {
       affiliateNetwork: fd(form, "affiliateNetwork") || null,
       partnerType: (fd(form, "partnerType") || "DIRECT") as PartnerType,
       defaultTrackingParams: fd(form, "defaultTrackingParams") || null,
+      feedUrl: fd(form, "feedUrl") || null,
       contactEmail: fd(form, "contactEmail") || null,
       priority: fdNum(form, "priority") ?? 0,
       isActive: fdBool(form, "isActive"),
@@ -177,5 +178,24 @@ export async function archiveExpiredDeals() {
     details: { archivedExpired: result.count },
   });
   revalidatePath("/admin/deals");
+  revalidatePath("/", "layout");
+}
+
+/* ---------------- Partner feed fetch (Phase 3) ---------------- */
+
+/** Downloads a partner's official CSV datafeed and imports it now. */
+export async function fetchFeedNow(partnerId: string) {
+  const { userId } = await requirePermission("affiliate.manage");
+  const { fetchPartnerFeed } = await import("@/server/import-offers");
+  const report = await fetchPartnerFeed(partnerId);
+  await audit({
+    userId,
+    action: "AFFILIATE_UPDATE",
+    entityType: "PARTNER_FEED",
+    entityId: partnerId,
+    details: "error" in report ? { error: report.error } : { ...report, errors: report.errors.length },
+  });
+  if ("error" in report) throw new Error(report.error);
+  revalidatePath("/admin/affiliate-partners");
   revalidatePath("/", "layout");
 }

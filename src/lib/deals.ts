@@ -85,18 +85,44 @@ const SCORE_META: Record<DealScoreKey, { label: string; tone: string }> = {
   OUT_OF_STOCK: { label: "Out of stock", tone: "bg-red-500/10 text-red-500" },
 };
 
-/** Simple Deal Score from discount, availability and price direction. */
-export function dealScore(o: OfferInput): { key: DealScoreKey; label: string; tone: string } {
+export type DealScoreContext = {
+  /** Lowest recorded price in the last 30 days (from PriceHistory). */
+  lowest30d?: number | null;
+  /** Editor/product rating 0–5. */
+  rating?: number | null;
+};
+
+/**
+ * Deal Score (Phase 3: context-aware). Points from discount, proximity to the
+ * 30-day low, product rating and price freshness; availability and price
+ * direction override everything.
+ */
+export function dealScore(
+  o: OfferInput,
+  ctx: DealScoreContext = {}
+): { key: DealScoreKey; label: string; tone: string } {
   let key: DealScoreKey;
   if (!isAvailable(o)) {
     key = "OUT_OF_STOCK";
   } else {
     const cur = toNum(o.currentPrice);
     const old = toNum(o.oldPrice);
-    if (cur != null && old != null && cur > old) key = "PRICE_INCREASED";
-    else {
+    if (cur != null && old != null && cur > old) {
+      key = "PRICE_INCREASED";
+    } else {
+      let points = 0;
       const d = discountPercent(o) ?? 0;
-      key = d >= 25 ? "EXCELLENT" : d >= 10 ? "GOOD" : "NORMAL";
+      if (d >= 25) points += 2;
+      else if (d >= 10) points += 1;
+      // At (or within 1% of) the lowest price seen in 30 days.
+      if (cur != null && ctx.lowest30d != null && cur <= ctx.lowest30d * 1.01) points += 1;
+      // Highly rated product makes a discount more meaningful.
+      if ((ctx.rating ?? 0) >= 4.5) points += 1;
+      // Stale price data (>14 days unchecked) reduces confidence.
+      if (o.lastCheckedAt && Date.now() - o.lastCheckedAt.getTime() > 14 * 86_400_000) {
+        points -= 1;
+      }
+      key = points >= 3 ? "EXCELLENT" : points >= 1 ? "GOOD" : "NORMAL";
     }
   }
   return { key, ...SCORE_META[key] };

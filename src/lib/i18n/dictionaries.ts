@@ -119,6 +119,7 @@ const en = {
   lowest_30d: "Lowest price in last 30 days",
   price_dropped: "Price dropped",
   price_increased: "Price increased",
+  price_history: "Price history",
 };
 
 const hr: Dictionary = {
@@ -233,6 +234,7 @@ const hr: Dictionary = {
   lowest_30d: "Najniža cijena u zadnjih 30 dana",
   price_dropped: "Cijena pala",
   price_increased: "Cijena porasla",
+  price_history: "Povijest cijena",
 };
 
 const de: Dictionary = {
