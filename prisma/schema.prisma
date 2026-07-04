@@ -106,6 +106,9 @@ enum SeoEntityType {
   PROMPT
   DEAL
   COMPARISON
+  FINANCE_PLATFORM
+  STOCK_ANALYSIS
+  ETF_GUIDE
 }
 
 enum AffiliateEntityType {
@@ -215,6 +218,7 @@ model User {
   appVersions    AppVersion[]
   backups        Backup[]
   globalSections GlobalSection[]
+  stockAnalyses  StockAnalysis[]
 
   @@map("users")
 }
@@ -405,6 +409,10 @@ model Media {
   newsFeaturedImages      NewsItem[]       @relation("NewsFeaturedImage")
   dealImages              Deal[]           @relation("DealImage")
   partnerLogos            AffiliatePartner[] @relation("PartnerLogo")
+  financePlatformLogos    FinancePlatform[]  @relation("FinancePlatformLogo")
+  financePlatformImages   FinancePlatform[]  @relation("FinancePlatformImage")
+  stockAnalysisImages     StockAnalysis[]    @relation("StockAnalysisImage")
+  etfGuideImages          EtfGuide[]         @relation("EtfGuideImage")
 
   @@map("media")
 }
@@ -653,6 +661,8 @@ model ToolAlternative {
 model Article {
   id              String        @id @default(cuid())
   type            ArticleType   @default(STANDARD)
+  // Which vertical this guide belongs to: "ai" | "gadget" | "finance" | null
+  vertical        String?
   status          ContentStatus @default(DRAFT)
   contentOrigin   ContentOrigin @default(HUMAN_WRITTEN)
   authorId        String?
@@ -1408,4 +1418,186 @@ model PriceHistory {
 
   @@index([offerId, checkedAt])
   @@map("price_history")
+}
+
+// -----------------------------------------------------------------
+// Finance vertical: platforms (brokers/apps), stock analysis, ETF guides
+// Educational content only — never personalized financial advice.
+// -----------------------------------------------------------------
+
+enum FinancePlatformType {
+  BROKER
+  TRADING_PLATFORM
+  INVESTING_APP
+  PORTFOLIO_TOOL
+  PERSONAL_FINANCE_APP
+  OTHER
+}
+
+enum InvestmentIdeaType {
+  LONG_TERM_WATCHLIST
+  GROWTH_STOCK
+  DIVIDEND_STOCK
+  VALUE_STOCK
+  TURNAROUND_IDEA
+  SPECULATIVE_IDEA
+  DEFENSIVE_STOCK
+  ETF_ALTERNATIVE
+  AVOID_WATCH_CAREFULLY
+}
+
+enum FinanceRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+  SPECULATIVE
+}
+
+enum TimeHorizon {
+  SHORT_TERM
+  MEDIUM_TERM
+  LONG_TERM
+  WATCHLIST_ONLY
+}
+
+model FinancePlatform {
+  id                 String              @id @default(cuid())
+  name               String
+  slug               String              @unique
+  type               FinancePlatformType @default(INVESTING_APP)
+  logoId             String?
+  featuredImageId    String?
+  description        String?             @db.Text
+  companyName        String?
+  websiteUrl         String?
+  affiliateUrl       String?
+  supportedCountriesJson Json?
+  supportedAssetsJson    Json?
+  minimumDeposit     String?
+  feeSummary         String?             @db.Text
+  pricingModel       String?
+  demoAccount        Boolean             @default(false)
+  mobileApp          Boolean             @default(false)
+  desktopPlatform    Boolean             @default(false)
+  webPlatform        Boolean             @default(true)
+  beginnerFriendly   Boolean             @default(false)
+  ratingOverall      Float?
+  ratingFees         Float?
+  ratingEaseOfUse    Float?
+  ratingFeatures     Float?
+  ratingSupport      Float?
+  ratingResearchTools Float?
+  prosJson           Json?
+  consJson           Json?
+  bestFor            String?
+  whoShouldAvoid     String?             @db.Text
+  riskDisclaimer     String?             @db.Text
+  reviewContent      String?             @db.Text
+  faqJson            Json?
+  status             ContentStatus       @default(DRAFT)
+  deletedAt          DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  publishedAt        DateTime?
+  lastReviewedAt     DateTime?
+
+  logo          Media?            @relation("FinancePlatformLogo", fields: [logoId], references: [id])
+  featuredImage Media?            @relation("FinancePlatformImage", fields: [featuredImageId], references: [id])
+  alternatives  FinancePlatformAlternative[] @relation("PlatformAlternatives")
+  alternativeOf FinancePlatformAlternative[] @relation("AlternativePlatform")
+
+  @@index([status, type])
+  @@map("finance_platforms")
+}
+
+model FinancePlatformAlternative {
+  id                    String   @id @default(cuid())
+  platformId            String
+  alternativePlatformId String
+  reason                String?
+  position              Int      @default(0)
+  createdAt             DateTime @default(now())
+
+  platform            FinancePlatform @relation("PlatformAlternatives", fields: [platformId], references: [id], onDelete: Cascade)
+  alternativePlatform FinancePlatform @relation("AlternativePlatform", fields: [alternativePlatformId], references: [id], onDelete: Cascade)
+
+  @@unique([platformId, alternativePlatformId])
+  @@map("finance_platform_alternatives")
+}
+
+model StockAnalysis {
+  id                    String             @id @default(cuid())
+  companyName           String
+  ticker                String
+  exchange              String?
+  slug                  String             @unique
+  sector                String?
+  industry              String?
+  country               String?
+  featuredImageId       String?
+  thesisSummary         String?            @db.Text
+  investmentIdeaType    InvestmentIdeaType @default(LONG_TERM_WATCHLIST)
+  riskLevel             FinanceRiskLevel   @default(MEDIUM)
+  timeHorizon           TimeHorizon        @default(LONG_TERM)
+  valuationOverview     String?            @db.Text
+  growthOverview        String?            @db.Text
+  profitabilityOverview String?            @db.Text
+  debtOverview          String?            @db.Text
+  dividendOverview      String?            @db.Text
+  bullCaseJson          Json?
+  bearCaseJson          Json?
+  keyRisksJson          Json?
+  keyMetricsJson        Json?
+  conclusion            String?            @db.Text
+  sourcesJson           Json?
+  faqJson               Json?
+  authorId              String?
+  status                ContentStatus      @default(DRAFT)
+  deletedAt             DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  publishedAt           DateTime?
+  lastReviewedAt        DateTime?
+
+  featuredImage Media? @relation("StockAnalysisImage", fields: [featuredImageId], references: [id])
+  author        User?  @relation(fields: [authorId], references: [id])
+
+  @@index([status])
+  @@index([ticker])
+  @@map("stock_analyses")
+}
+
+// Schema-ready for Phase 2 (no UI yet).
+model EtfGuide {
+  id                String           @id @default(cuid())
+  etfName           String
+  ticker            String
+  slug              String           @unique
+  provider          String?
+  assetClass        String?
+  region            String?
+  expenseRatio      String?
+  dividendPolicy    String?
+  replicationType   String?
+  riskLevel         FinanceRiskLevel @default(MEDIUM)
+  investmentHorizon TimeHorizon      @default(LONG_TERM)
+  featuredImageId   String?
+  overview          String?          @db.Text
+  prosJson          Json?
+  consJson          Json?
+  whoItMaySuit      String?          @db.Text
+  risksJson         Json?
+  faqJson           Json?
+  status            ContentStatus    @default(DRAFT)
+  deletedAt         DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  publishedAt       DateTime?
+  lastReviewedAt    DateTime?
+
+  featuredImage Media? @relation("EtfGuideImage", fields: [featuredImageId], references: [id])
+
+  @@index([status])
+  @@map("etf_guides")
 }

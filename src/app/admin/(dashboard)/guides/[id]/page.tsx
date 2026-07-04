@@ -60,6 +60,14 @@ export default async function EditGuidePage(props: PageProps<"/admin/guides/[id]
             <Field label="Target word count">
               <Input name="targetWordCount" type="number" defaultValue={article.targetWordCount ?? ""} />
             </Field>
+            <Field label="Vertical" hint="Finance guides appear under /finance/guides">
+              <Select name="vertical" defaultValue={article.vertical ?? ""}>
+                <option value="">— general —</option>
+                <option value="ai">AI Tools</option>
+                <option value="gadget">Gadget Reviews</option>
+                <option value="finance">Finance</option>
+              </Select>
+            </Field>
           </div>
         </FormSection>
 

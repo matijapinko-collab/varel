@@ -17,7 +17,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     for (const code of codes) {
       entries.push({ url: `${site}/${code}`, changeFrequency: "daily", priority: 1 });
-      for (const section of ["tools", "categories", "compare", "guides", "editorial", "news", "prompts", "deals"]) {
+      for (const section of [
+        "tools", "categories", "compare", "guides", "editorial", "news", "prompts", "deals",
+        "best-deals", "finance", "finance/investing-apps", "finance/trading-platforms",
+        "finance/brokers", "finance/stock-analysis", "finance/guides",
+      ]) {
         entries.push({
           url: `${site}/${code}/${section}`,
           changeFrequency: "daily",
@@ -82,6 +86,36 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         });
       }
     };
+
+    // Finance content (single-locale content, indexed under every enabled locale)
+    const [financePlatforms, stockAnalyses] = await Promise.all([
+      db.financePlatform.findMany({
+        where: { status: "PUBLISHED", deletedAt: null },
+        select: { slug: true, updatedAt: true },
+      }),
+      db.stockAnalysis.findMany({
+        where: { status: "PUBLISHED", deletedAt: null },
+        select: { slug: true, updatedAt: true },
+      }),
+    ]);
+    for (const code of codes) {
+      for (const p of financePlatforms) {
+        entries.push({
+          url: `${site}/${code}/finance/platforms/${p.slug}`,
+          lastModified: p.updatedAt,
+          changeFrequency: "weekly",
+          priority: 0.8,
+        });
+      }
+      for (const a of stockAnalyses) {
+        entries.push({
+          url: `${site}/${code}/finance/stock-analysis/${a.slug}`,
+          lastModified: a.updatedAt,
+          changeFrequency: "weekly",
+          priority: 0.7,
+        });
+      }
+    }
 
     add(pages, "", 0.6);
     add(toolTrs, "/tools", 0.9);

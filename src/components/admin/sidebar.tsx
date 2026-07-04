@@ -15,6 +15,8 @@ import {
   BadgePercent,
   Store,
   FileUp,
+  Landmark,
+  CandlestickChart,
   Link2,
   Image as ImageIcon,
   Menu as MenuIcon,
@@ -51,6 +53,13 @@ const GROUPS: {
       { href: "/admin/editorial", label: "Editorial", icon: PenLine },
       { href: "/admin/news", label: "News", icon: Newspaper },
       { href: "/admin/prompts", label: "Prompts", icon: MessageSquareText },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { href: "/admin/finance-platforms", label: "Finance Platforms", icon: Landmark },
+      { href: "/admin/stock-analysis", label: "Stock Analysis", icon: CandlestickChart },
     ],
   },
   {

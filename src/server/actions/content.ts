@@ -60,6 +60,7 @@ export async function saveArticle(articleId: string, languageId: string, form: F
     where: { id: articleId },
     data: {
       type: (fd(form, "type") || "STANDARD") as ArticleType,
+      vertical: fd(form, "vertical") || null,
       status,
       targetWordCount: fdNum(form, "targetWordCount"),
       featuredImageId: fd(form, "featuredImageId") || null,
