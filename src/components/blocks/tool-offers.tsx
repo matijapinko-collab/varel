@@ -2,7 +2,7 @@
 import { ExternalLink } from "lucide-react";
 import type { Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/dictionaries";
-import { getToolOffers } from "@/lib/deals-data";
+import { getToolOffers, getPriceContext } from "@/lib/deals-data";
 import { dealScore, discountPercent, formatPrice, isAvailable, type OfferInput } from "@/lib/deals";
 import { AffiliateDisclosure } from "./affiliate-disclosure";
 
@@ -24,6 +24,7 @@ export async function ToolOffers({ toolId, locale }: { toolId: string; locale: L
   const t = getDictionary(locale);
   const { offers, best } = await getToolOffers(toolId);
   if (!offers.length || !best) return null;
+  const priceContext = await getPriceContext(toolId, best.id);
 
   const asInput = (o: (typeof offers)[number]): OfferInput => ({
     id: o.id,
@@ -70,6 +71,17 @@ export async function ToolOffers({ toolId, locale }: { toolId: string; locale: L
               {best.lastCheckedAt && <span>· {t.last_checked} {best.lastCheckedAt.toLocaleDateString(locale)}</span>}
               {!best.shippingCost && <span>· {t.shipping_may_vary}</span>}
             </div>
+            {priceContext?.lowest30d != null && (
+              <div className="mt-1 text-xs text-muted">
+                {t.lowest_30d}: {formatPrice(priceContext.lowest30d, priceContext.currency)}
+                {priceContext.direction === "down" && (
+                  <span className="ml-1.5 text-green-600 dark:text-green-400">↓ {t.price_dropped}</span>
+                )}
+                {priceContext.direction === "up" && (
+                  <span className="ml-1.5 text-orange-600 dark:text-orange-400">↑ {t.price_increased}</span>
+                )}
+              </div>
+            )}
           </div>
           <a
             href={`/o/${best.id}`}

@@ -106,3 +106,35 @@ export const getToolOffers = cache(async (toolId: string) => {
 });
 
 export { discountPercent, effectivePrice };
+
+/**
+ * Price context for a product from stored PriceHistory (Phase 2):
+ * lowest price in the last 30 days + direction of the latest change.
+ */
+export const getPriceContext = cache(async (toolId: string, bestOfferId?: string | null) => {
+  const since = new Date(Date.now() - 30 * 86_400_000);
+  const history = await db.priceHistory.findMany({
+    where: { toolId, checkedAt: { gte: since }, price: { not: null } },
+    orderBy: { checkedAt: "desc" },
+    take: 200,
+  });
+  if (!history.length) return null;
+
+  const prices = history
+    .map((h) => toNum(h.price))
+    .filter((n): n is number => n != null);
+  const lowest30d = prices.length ? Math.min(...prices) : null;
+
+  // Direction: compare the two most recent points of the best offer.
+  let direction: "up" | "down" | "same" | null = null;
+  if (bestOfferId) {
+    const points = history.filter((h) => h.offerId === bestOfferId);
+    if (points.length >= 2) {
+      const [latest, prev] = points;
+      const a = toNum(latest.price);
+      const b = toNum(prev.price);
+      if (a != null && b != null) direction = a < b ? "down" : a > b ? "up" : "same";
+    }
+  }
+  return { lowest30d, direction, currency: history[0].currency };
+});

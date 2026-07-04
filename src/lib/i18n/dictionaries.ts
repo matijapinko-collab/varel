@@ -116,6 +116,9 @@ const en = {
   min_discount: "Min. discount",
   featured_deals: "Featured deals",
   latest_deals: "Latest deals",
+  lowest_30d: "Lowest price in last 30 days",
+  price_dropped: "Price dropped",
+  price_increased: "Price increased",
 };
 
 const hr: Dictionary = {
@@ -227,6 +230,9 @@ const hr: Dictionary = {
   min_discount: "Min. popust",
   featured_deals: "Izdvojene ponude",
   latest_deals: "Najnovije ponude",
+  lowest_30d: "Najniža cijena u zadnjih 30 dana",
+  price_dropped: "Cijena pala",
+  price_increased: "Cijena porasla",
 };
 
 const de: Dictionary = {

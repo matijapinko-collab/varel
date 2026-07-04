@@ -45,7 +45,13 @@ export default async function DealPage(props: PageProps<"/[locale]/deals/[slug]"
   const d = await getDeal(locale, slug);
   if (!d) notFound();
   const deal = d.deal;
-  const href = deal.affiliateLink ? `/go/${deal.affiliateLink.id}` : "#";
+  const href = deal.offerId
+    ? `/o/${deal.offerId}`
+    : deal.affiliateLink
+      ? `/go/${deal.affiliateLink.id}`
+      : "#";
+  const end = deal.endsAt ?? deal.validUntil;
+  const expired = end != null && end < new Date();
 
   return (
     <article className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
@@ -84,14 +90,20 @@ export default async function DealPage(props: PageProps<"/[locale]/deals/[slug]"
           </div>
         )}
 
-        <a
-          href={href}
-          target="_blank"
-          rel="nofollow sponsored noopener"
-          className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground hover:opacity-90"
-        >
-          {d.ctaText ?? t.get_deal}
-        </a>
+        {expired ? (
+          <div className="mt-8 rounded-full border border-border bg-background-secondary px-6 py-3 text-center text-base font-semibold text-muted">
+            {t.deal_expired}
+          </div>
+        ) : (
+          <a
+            href={href}
+            target="_blank"
+            rel="nofollow sponsored noopener"
+            className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground hover:opacity-90"
+          >
+            {d.ctaText ?? t.get_deal}
+          </a>
+        )}
         <p className="mt-4 text-xs text-muted">{t.affiliate_disclosure_short}</p>
       </div>
     </article>

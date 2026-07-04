@@ -155,3 +155,27 @@ export async function deleteOffer(offerId: string) {
   revalidatePath(`/admin/tools/${offer.toolId}/offers`);
   revalidatePath("/", "layout");
 }
+
+/* ---------------- Expired deal handling (Phase 2) ---------------- */
+
+/** Archives all published deals whose end date has passed. */
+export async function archiveExpiredDeals() {
+  const { userId } = await requirePermission("content.edit");
+  const now = new Date();
+  const result = await db.deal.updateMany({
+    where: {
+      status: "PUBLISHED",
+      deletedAt: null,
+      OR: [{ endsAt: { lt: now } }, { AND: [{ endsAt: null }, { validUntil: { lt: now } }] }],
+    },
+    data: { status: "ARCHIVED" },
+  });
+  await audit({
+    userId,
+    action: "UPDATE",
+    entityType: "DEAL",
+    details: { archivedExpired: result.count },
+  });
+  revalidatePath("/admin/deals");
+  revalidatePath("/", "layout");
+}

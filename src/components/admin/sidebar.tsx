@@ -14,6 +14,7 @@ import {
   MessageSquareText,
   BadgePercent,
   Store,
+  FileUp,
   Link2,
   Image as ImageIcon,
   Menu as MenuIcon,
@@ -57,6 +58,7 @@ const GROUPS: {
     items: [
       { href: "/admin/deals", label: "Best Deals", icon: BadgePercent },
       { href: "/admin/affiliate-partners", label: "Affiliate Partners", icon: Store },
+      { href: "/admin/offers-import", label: "Import offers", icon: FileUp },
       { href: "/admin/affiliate", label: "Affiliate Manager", icon: Link2 },
     ],
   },
