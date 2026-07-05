@@ -57,15 +57,17 @@ export default async function DealPage(props: PageProps<"/[locale]/deals/[slug]"
     <article className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
       <TrackView type="DEAL_CLICK" entityType="DEAL" entityId={deal.id} locale={locale} />
       <div className="rounded-card border border-border bg-card p-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-semibold uppercase tracking-wide text-muted">
             {deal.brandName}
           </span>
-          {deal.discountPercent != null && (
-            <span className="rounded-full bg-primary px-3 py-1 text-sm font-bold text-primary-foreground">
-              -{deal.discountPercent}%
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {deal.discountPercent != null && (
+              <span className="rounded-full bg-primary px-3 py-1 text-sm font-bold text-primary-foreground">
+                -{deal.discountPercent}%
+              </span>
+            )}
+          </div>
         </div>
         <h1 className="mt-3 text-3xl font-bold tracking-tight">{d.title}</h1>
         {d.description && <p className="mt-3 text-muted">{d.description}</p>}

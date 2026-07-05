@@ -13,6 +13,7 @@ const EVENT_TYPES = [
   "CATEGORY_CLICK",
   "OUTBOUND_CLICK",
   "DEAL_CLICK",
+  "AFFILIATE_CLICK",
 ] as const;
 
 const schema = z.object({

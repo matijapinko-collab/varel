@@ -65,36 +65,8 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
         ])
       : [[], [], [], []];
 
-  const [financePlatforms, stockAnalyses] = q
-    ? await Promise.all([
-        db.financePlatform.findMany({
-          where: {
-            status: "PUBLISHED",
-            deletedAt: null,
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { description: { contains: q, mode: "insensitive" } },
-            ],
-          },
-          take: 6,
-        }),
-        db.stockAnalysis.findMany({
-          where: {
-            status: "PUBLISHED",
-            deletedAt: null,
-            OR: [
-              { companyName: { contains: q, mode: "insensitive" } },
-              { ticker: { contains: q, mode: "insensitive" } },
-            ],
-          },
-          take: 6,
-        }),
-      ])
-    : [[], []];
-
   const total =
-    tools.length + articles.length + comparisons.length + prompts.length +
-    financePlatforms.length + stockAnalyses.length;
+    tools.length + articles.length + comparisons.length + prompts.length;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -164,46 +136,6 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
                 className="rounded-card border border-border bg-card px-5 py-4 font-medium hover:border-primary/40 hover:text-primary"
               >
                 {p.title}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {financePlatforms.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-lg font-bold">Finance platforms</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {financePlatforms.map((p) => (
-              <Link
-                key={p.id}
-                href={`/${locale}/finance/platforms/${p.slug}`}
-                className="rounded-card border border-border bg-card px-5 py-4 font-medium hover:border-primary/40 hover:text-primary"
-              >
-                {p.name}
-                {p.ratingOverall != null && (
-                  <span className="ml-2 text-xs text-muted">★ {p.ratingOverall.toFixed(1)}</span>
-                )}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {stockAnalyses.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-lg font-bold">Stock analysis</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {stockAnalyses.map((a) => (
-              <Link
-                key={a.id}
-                href={`/${locale}/finance/stock-analysis/${a.slug}`}
-                className="rounded-card border border-border bg-card px-5 py-4 font-medium hover:border-primary/40 hover:text-primary"
-              >
-                <span className="mr-2 rounded bg-soft px-1.5 py-0.5 font-mono text-xs font-bold text-primary">
-                  {a.ticker}
-                </span>
-                {a.companyName}
               </Link>
             ))}
           </div>

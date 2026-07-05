@@ -15,9 +15,9 @@ import {
   BadgePercent,
   Store,
   FileUp,
-  Landmark,
-  CandlestickChart,
   Link2,
+  Plug,
+  ScanSearch,
   Image as ImageIcon,
   Menu as MenuIcon,
   Languages,
@@ -56,19 +56,14 @@ const GROUPS: {
     ],
   },
   {
-    label: "Finance",
-    items: [
-      { href: "/admin/finance-platforms", label: "Finance Platforms", icon: Landmark },
-      { href: "/admin/stock-analysis", label: "Stock Analysis", icon: CandlestickChart },
-    ],
-  },
-  {
     label: "Monetization",
     items: [
+      { href: "/admin/price-checker", label: "Price Checker", icon: ScanSearch },
       { href: "/admin/deals", label: "Best Deals", icon: BadgePercent },
       { href: "/admin/affiliate-partners", label: "Affiliate Partners", icon: Store },
       { href: "/admin/offers-import", label: "Import offers", icon: FileUp },
       { href: "/admin/affiliate", label: "Affiliate Manager", icon: Link2 },
+      { href: "/admin/integrations", label: "Integrations", icon: Plug },
     ],
   },
   {
