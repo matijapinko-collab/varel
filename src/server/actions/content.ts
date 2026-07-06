@@ -52,6 +52,34 @@ export async function createArticle(form: FormData) {
   redirect(`/administracija/guides/${article.id}?lang=hr`);
 }
 
+/** Dashboard "Quick Draft" widget → creates a draft post (Article). */
+export async function createQuickDraft(form: FormData) {
+  const { userId } = await requirePermission("content.create");
+  const title = fd(form, "title");
+  if (!title) throw new Error("Title is required");
+  const hr = await db.language.findUnique({ where: { code: "hr" } });
+  if (!hr) throw new Error("Croatian language missing");
+
+  const article = await db.article.create({
+    data: {
+      type: "STANDARD",
+      status: "DRAFT",
+      authorId: userId,
+      translations: {
+        create: {
+          languageId: hr.id,
+          title,
+          slug: slugify(title),
+          body: fd(form, "body") || null,
+          status: "DRAFT",
+        },
+      },
+    },
+  });
+  await audit({ userId, action: "CREATE", entityType: "ARTICLE", entityId: article.id, details: { via: "quick_draft" } });
+  redirect(`/administracija/posts/${article.id}/edit`);
+}
+
 export async function saveArticle(articleId: string, languageId: string, form: FormData) {
   const { userId } = await requirePermission("content.edit");
   const status = (fd(form, "status") || "DRAFT") as ContentStatus;

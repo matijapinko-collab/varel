@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FileText,
+  FileStack,
   Wrench,
   FolderTree,
   GitCompareArrows,
@@ -13,11 +14,8 @@ import {
   Newspaper,
   MessageSquareText,
   BadgePercent,
-  Store,
-  FileUp,
   Link2,
   Plug,
-  ScanSearch,
   Image as ImageIcon,
   Menu as MenuIcon,
   Languages,
@@ -34,63 +32,75 @@ import {
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
-const GROUPS: {
-  label: string;
-  items: { href: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }[];
-}[] = [
+type Item = { href: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }> };
+
+// WordPress-style grouped navigation. Finance and Gadget Reviews are removed.
+const GROUPS: { label: string; items: Item[] }[] = [
   {
-    label: "Overview",
-    items: [{ href: "/administracija", label: "Dashboard", icon: LayoutDashboard }],
+    label: "",
+    items: [{ href: "/administracija/dashboard", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
     label: "Content",
     items: [
+      { href: "/administracija/posts", label: "Posts", icon: FileStack },
       { href: "/administracija/pages", label: "Pages", icon: FileText },
-      { href: "/administracija/tools", label: "Tools", icon: Wrench },
-      { href: "/administracija/categories", label: "Categories", icon: FolderTree },
-      { href: "/administracija/comparisons", label: "Comparisons", icon: GitCompareArrows },
       { href: "/administracija/guides", label: "Guides", icon: BookOpen },
       { href: "/administracija/editorial", label: "Editorial", icon: PenLine },
       { href: "/administracija/news", label: "News", icon: Newspaper },
       { href: "/administracija/prompts", label: "Prompts", icon: MessageSquareText },
+      { href: "/administracija/comparisons", label: "Comparisons", icon: GitCompareArrows },
+    ],
+  },
+  {
+    label: "Directory",
+    items: [
+      { href: "/administracija/tools", label: "Tools", icon: Wrench },
+      { href: "/administracija/categories", label: "Categories", icon: FolderTree },
     ],
   },
   {
     label: "Monetization",
     items: [
-      { href: "/administracija/price-checker", label: "Price Checker", icon: ScanSearch },
-      { href: "/administracija/deals", label: "Best Deals", icon: BadgePercent },
-      { href: "/administracija/affiliate-partners", label: "Affiliate Partners", icon: Store },
-      { href: "/administracija/offers-import", label: "Import offers", icon: FileUp },
-      { href: "/administracija/affiliate", label: "Affiliate Manager", icon: Link2 },
-      { href: "/administracija/integrations", label: "Integrations", icon: Plug },
+      { href: "/administracija/price-checker", label: "Best Deals / Price Checker", icon: BadgePercent },
+      { href: "/administracija/affiliate", label: "Affiliate Links", icon: Link2 },
     ],
   },
   {
-    label: "Site",
-    items: [
-      { href: "/administracija/media", label: "Media Library", icon: ImageIcon },
-      { href: "/administracija/menus", label: "Menus", icon: MenuIcon },
-      { href: "/administracija/languages", label: "Languages", icon: Languages },
-      { href: "/administracija/translations", label: "Translations", icon: Repeat2 },
-      { href: "/administracija/seo", label: "SEO Manager", icon: SearchCheck },
-    ],
+    label: "Media",
+    items: [{ href: "/administracija/media", label: "Media Library", icon: ImageIcon }],
   },
   {
-    label: "Insights",
+    label: "SEO",
+    items: [{ href: "/administracija/seo", label: "SEO Overview", icon: SearchCheck }],
+  },
+  {
+    label: "Analytics",
     items: [
       { href: "/administracija/analytics", label: "Analytics", icon: BarChart3 },
       { href: "/administracija/newsletter", label: "Newsletter", icon: Mail },
     ],
   },
   {
-    label: "System",
+    label: "Integrations",
+    items: [{ href: "/administracija/integrations", label: "API Connections", icon: Plug }],
+  },
+  {
+    label: "Users",
     items: [
-      { href: "/administracija/users", label: "Users", icon: Users },
-      { href: "/administracija/security", label: "Security", icon: ShieldCheck },
+      { href: "/administracija/users", label: "All Users", icon: Users },
+      { href: "/administracija/security", label: "Security & Roles", icon: ShieldCheck },
+    ],
+  },
+  {
+    label: "Settings",
+    items: [
+      { href: "/administracija/settings", label: "General", icon: Settings },
+      { href: "/administracija/branding", label: "Branding & Theme", icon: Palette },
+      { href: "/administracija/languages", label: "Languages", icon: Languages },
+      { href: "/administracija/translations", label: "Translations", icon: Repeat2 },
+      { href: "/administracija/menus", label: "Menus", icon: MenuIcon },
       { href: "/administracija/versions", label: "Version Manager", icon: PackageOpen },
-      { href: "/administracija/settings", label: "Settings", icon: Settings },
-      { href: "/administracija/branding", label: "Branding", icon: Palette },
     ],
   },
 ];
@@ -100,25 +110,27 @@ export function AdminSidebar({ userName }: { userName: string }) {
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-card max-lg:hidden">
-      <div className="flex h-14 items-center gap-2 border-b border-border px-4">
+      <Link
+        href="/administracija/dashboard"
+        className="flex h-14 items-center gap-2 border-b border-border px-4"
+      >
         <span className="text-lg font-bold tracking-tight">
           <span className="text-primary">V</span>arel
         </span>
         <span className="rounded-full bg-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
           Admin
         </span>
-      </div>
+      </Link>
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {GROUPS.map((group) => (
-          <div key={group.label} className="mb-4">
-            <div className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
-              {group.label}
-            </div>
+        {GROUPS.map((group, gi) => (
+          <div key={group.label || `g${gi}`} className="mb-4">
+            {group.label && (
+              <div className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                {group.label}
+              </div>
+            )}
             {group.items.map((item) => {
-              const active =
-                item.href === "/administracija"
-                  ? pathname === "/administracija"
-                  : pathname.startsWith(item.href);
+              const active = pathname === item.href || pathname.startsWith(item.href + "/");
               const Icon = item.icon;
               return (
                 <Link
