@@ -11,6 +11,7 @@ import {
 import { getBranding } from "@/lib/settings";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { PublicAdminBar } from "@/components/admin/public-admin-bar";
 import { TrackView } from "@/components/analytics/track-view";
 import { GoogleScripts } from "@/components/analytics/google-scripts";
 import { CookieConsent } from "@/components/consent/cookie-consent";
@@ -76,6 +77,7 @@ export default async function LocaleLayout(props: LayoutProps<"/[locale]">) {
       <body className="flex min-h-screen flex-col bg-background text-foreground">
         <GoogleScripts />
         <TrackView type="PAGE_VIEW" locale={locale} />
+        <PublicAdminBar />
         <SiteHeader locale={locale as Locale} />
         <main className="flex-1">{props.children}</main>
         <SiteFooter locale={locale as Locale} />
