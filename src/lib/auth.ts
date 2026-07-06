@@ -91,6 +91,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
+  events: {
+    async signOut(message) {
+      const token = "token" in message ? message.token : null;
+      const userId = token?.id;
+      if (typeof userId === "string") {
+        await audit({ userId, action: "LOGOUT" });
+      }
+    },
+  },
   callbacks: {
     jwt({ token, user }) {
       if (user) {
