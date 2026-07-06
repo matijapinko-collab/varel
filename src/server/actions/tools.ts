@@ -29,7 +29,7 @@ export async function createTool(form: FormData) {
     },
   });
   await audit({ userId, action: "CREATE", entityType: "TOOL", entityId: tool.id });
-  redirect(`/admin/tools/${tool.id}`);
+  redirect(`/administracija/tools/${tool.id}`);
 }
 
 export async function saveTool(toolId: string, languageId: string, form: FormData) {
@@ -135,5 +135,5 @@ export async function deleteTool(toolId: string) {
     data: { deletedAt: new Date(), status: "ARCHIVED" },
   });
   await audit({ userId, action: "DELETE", entityType: "TOOL", entityId: toolId });
-  revalidatePath("/admin/tools");
+  revalidatePath("/administracija/tools");
 }

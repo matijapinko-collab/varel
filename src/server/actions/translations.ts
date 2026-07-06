@@ -201,5 +201,5 @@ export async function createDraftTranslation(
     entityId,
     details: { targetLanguageId },
   });
-  revalidatePath("/admin/translations");
+  revalidatePath("/administracija/translations");
 }

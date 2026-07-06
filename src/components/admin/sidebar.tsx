@@ -40,57 +40,57 @@ const GROUPS: {
 }[] = [
   {
     label: "Overview",
-    items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }],
+    items: [{ href: "/administracija", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
     label: "Content",
     items: [
-      { href: "/admin/pages", label: "Pages", icon: FileText },
-      { href: "/admin/tools", label: "Tools", icon: Wrench },
-      { href: "/admin/categories", label: "Categories", icon: FolderTree },
-      { href: "/admin/comparisons", label: "Comparisons", icon: GitCompareArrows },
-      { href: "/admin/guides", label: "Guides", icon: BookOpen },
-      { href: "/admin/editorial", label: "Editorial", icon: PenLine },
-      { href: "/admin/news", label: "News", icon: Newspaper },
-      { href: "/admin/prompts", label: "Prompts", icon: MessageSquareText },
+      { href: "/administracija/pages", label: "Pages", icon: FileText },
+      { href: "/administracija/tools", label: "Tools", icon: Wrench },
+      { href: "/administracija/categories", label: "Categories", icon: FolderTree },
+      { href: "/administracija/comparisons", label: "Comparisons", icon: GitCompareArrows },
+      { href: "/administracija/guides", label: "Guides", icon: BookOpen },
+      { href: "/administracija/editorial", label: "Editorial", icon: PenLine },
+      { href: "/administracija/news", label: "News", icon: Newspaper },
+      { href: "/administracija/prompts", label: "Prompts", icon: MessageSquareText },
     ],
   },
   {
     label: "Monetization",
     items: [
-      { href: "/admin/price-checker", label: "Price Checker", icon: ScanSearch },
-      { href: "/admin/deals", label: "Best Deals", icon: BadgePercent },
-      { href: "/admin/affiliate-partners", label: "Affiliate Partners", icon: Store },
-      { href: "/admin/offers-import", label: "Import offers", icon: FileUp },
-      { href: "/admin/affiliate", label: "Affiliate Manager", icon: Link2 },
-      { href: "/admin/integrations", label: "Integrations", icon: Plug },
+      { href: "/administracija/price-checker", label: "Price Checker", icon: ScanSearch },
+      { href: "/administracija/deals", label: "Best Deals", icon: BadgePercent },
+      { href: "/administracija/affiliate-partners", label: "Affiliate Partners", icon: Store },
+      { href: "/administracija/offers-import", label: "Import offers", icon: FileUp },
+      { href: "/administracija/affiliate", label: "Affiliate Manager", icon: Link2 },
+      { href: "/administracija/integrations", label: "Integrations", icon: Plug },
     ],
   },
   {
     label: "Site",
     items: [
-      { href: "/admin/media", label: "Media Library", icon: ImageIcon },
-      { href: "/admin/menus", label: "Menus", icon: MenuIcon },
-      { href: "/admin/languages", label: "Languages", icon: Languages },
-      { href: "/admin/translations", label: "Translations", icon: Repeat2 },
-      { href: "/admin/seo", label: "SEO Manager", icon: SearchCheck },
+      { href: "/administracija/media", label: "Media Library", icon: ImageIcon },
+      { href: "/administracija/menus", label: "Menus", icon: MenuIcon },
+      { href: "/administracija/languages", label: "Languages", icon: Languages },
+      { href: "/administracija/translations", label: "Translations", icon: Repeat2 },
+      { href: "/administracija/seo", label: "SEO Manager", icon: SearchCheck },
     ],
   },
   {
     label: "Insights",
     items: [
-      { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-      { href: "/admin/newsletter", label: "Newsletter", icon: Mail },
+      { href: "/administracija/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/administracija/newsletter", label: "Newsletter", icon: Mail },
     ],
   },
   {
     label: "System",
     items: [
-      { href: "/admin/users", label: "Users", icon: Users },
-      { href: "/admin/security", label: "Security", icon: ShieldCheck },
-      { href: "/admin/versions", label: "Version Manager", icon: PackageOpen },
-      { href: "/admin/settings", label: "Settings", icon: Settings },
-      { href: "/admin/branding", label: "Branding", icon: Palette },
+      { href: "/administracija/users", label: "Users", icon: Users },
+      { href: "/administracija/security", label: "Security", icon: ShieldCheck },
+      { href: "/administracija/versions", label: "Version Manager", icon: PackageOpen },
+      { href: "/administracija/settings", label: "Settings", icon: Settings },
+      { href: "/administracija/branding", label: "Branding", icon: Palette },
     ],
   },
 ];
@@ -116,8 +116,8 @@ export function AdminSidebar({ userName }: { userName: string }) {
             </div>
             {group.items.map((item) => {
               const active =
-                item.href === "/admin"
-                  ? pathname === "/admin"
+                item.href === "/administracija"
+                  ? pathname === "/administracija"
                   : pathname.startsWith(item.href);
               const Icon = item.icon;
               return (
@@ -143,7 +143,7 @@ export function AdminSidebar({ userName }: { userName: string }) {
           <span className="truncate text-sm font-medium">{userName}</span>
           <button
             type="button"
-            onClick={() => signOut({ callbackUrl: "/admin/login" })}
+            onClick={() => signOut({ callbackUrl: "/administracija" })}
             aria-label="Sign out"
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-background-secondary hover:text-foreground"
           >

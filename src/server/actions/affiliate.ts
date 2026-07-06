@@ -27,7 +27,7 @@ export async function createAffiliateLink(form: FormData) {
     entityId: link.id,
     details: { created: true },
   });
-  redirect(`/admin/affiliate/${link.id}`);
+  redirect(`/administracija/affiliate/${link.id}`);
 }
 
 export async function saveAffiliateLink(linkId: string, form: FormData) {
@@ -56,7 +56,7 @@ export async function saveAffiliateLink(linkId: string, form: FormData) {
     entityType: "AFFILIATE_LINK",
     entityId: linkId,
   });
-  revalidatePath("/admin/affiliate");
+  revalidatePath("/administracija/affiliate");
 }
 
 export async function deleteAffiliateLink(linkId: string) {
@@ -72,5 +72,5 @@ export async function deleteAffiliateLink(linkId: string) {
     entityId: linkId,
     details: { deleted: true },
   });
-  revalidatePath("/admin/affiliate");
+  revalidatePath("/administracija/affiliate");
 }

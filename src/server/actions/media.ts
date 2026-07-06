@@ -32,7 +32,7 @@ export async function addMediaByUrl(form: FormData) {
     },
   });
   await audit({ userId, action: "MEDIA_UPLOAD", entityType: "MEDIA", entityId: media.id, details: { external: true } });
-  revalidatePath("/admin/media");
+  revalidatePath("/administracija/media");
 }
 
 export async function updateMedia(mediaId: string, form: FormData) {
@@ -46,7 +46,7 @@ export async function updateMedia(mediaId: string, form: FormData) {
     },
   });
   await audit({ userId, action: "UPDATE", entityType: "MEDIA", entityId: mediaId });
-  revalidatePath("/admin/media");
+  revalidatePath("/administracija/media");
 }
 
 export async function deleteMedia(mediaId: string) {
@@ -67,5 +67,5 @@ export async function deleteMedia(mediaId: string) {
     await deleteFile(media.storageKey);
   }
   await audit({ userId, action: "MEDIA_DELETE", entityType: "MEDIA", entityId: mediaId });
-  revalidatePath("/admin/media");
+  revalidatePath("/administracija/media");
 }

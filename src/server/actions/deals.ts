@@ -17,7 +17,7 @@ export async function createAffiliatePartner(form: FormData) {
     data: { name, slug: slugify(fd(form, "slug") || name) },
   });
   await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "PARTNER", entityId: partner.id, details: { created: true } });
-  redirect(`/admin/affiliate-partners/${partner.id}`);
+  redirect(`/administracija/affiliate-partners/${partner.id}`);
 }
 
 export async function saveAffiliatePartner(partnerId: string, form: FormData) {
@@ -40,7 +40,7 @@ export async function saveAffiliatePartner(partnerId: string, form: FormData) {
     },
   });
   await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "PARTNER", entityId: partnerId });
-  revalidatePath("/admin/affiliate-partners");
+  revalidatePath("/administracija/affiliate-partners");
   revalidatePath("/", "layout");
 }
 
@@ -51,7 +51,7 @@ export async function deleteAffiliatePartner(partnerId: string) {
     data: { deletedAt: new Date(), isActive: false },
   });
   await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "PARTNER", entityId: partnerId, details: { deleted: true } });
-  revalidatePath("/admin/affiliate-partners");
+  revalidatePath("/administracija/affiliate-partners");
 }
 
 /* ---------------- Product offers ---------------- */
@@ -94,7 +94,7 @@ export async function createOffer(toolId: string, form: FormData) {
     },
   });
   await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "OFFER", entityId: offer.id, details: { created: true } });
-  revalidatePath(`/admin/tools/${toolId}/offers`);
+  revalidatePath(`/administracija/tools/${toolId}/offers`);
   revalidatePath("/", "layout");
 }
 
@@ -145,7 +145,7 @@ export async function saveOffer(offerId: string, form: FormData) {
     });
   }
   await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "OFFER", entityId: offerId });
-  revalidatePath(`/admin/tools/${offer.toolId}/offers`);
+  revalidatePath(`/administracija/tools/${offer.toolId}/offers`);
   revalidatePath("/", "layout");
 }
 
@@ -153,7 +153,7 @@ export async function deleteOffer(offerId: string) {
   const { userId } = await requirePermission("affiliate.manage");
   const offer = await db.productOffer.delete({ where: { id: offerId } });
   await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "OFFER", entityId: offerId, details: { deleted: true } });
-  revalidatePath(`/admin/tools/${offer.toolId}/offers`);
+  revalidatePath(`/administracija/tools/${offer.toolId}/offers`);
   revalidatePath("/", "layout");
 }
 
@@ -177,7 +177,7 @@ export async function archiveExpiredDeals() {
     entityType: "DEAL",
     details: { archivedExpired: result.count },
   });
-  revalidatePath("/admin/deals");
+  revalidatePath("/administracija/deals");
   revalidatePath("/", "layout");
 }
 
@@ -196,6 +196,6 @@ export async function fetchFeedNow(partnerId: string) {
     details: "error" in report ? { error: report.error } : { ...report, errors: report.errors.length },
   });
   if ("error" in report) throw new Error(report.error);
-  revalidatePath("/admin/affiliate-partners");
+  revalidatePath("/administracija/affiliate-partners");
   revalidatePath("/", "layout");
 }

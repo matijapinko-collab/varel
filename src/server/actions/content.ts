@@ -49,7 +49,7 @@ export async function createArticle(form: FormData) {
     },
   });
   await audit({ userId, action: "CREATE", entityType: "ARTICLE", entityId: article.id });
-  redirect(`/admin/guides/${article.id}?lang=hr`);
+  redirect(`/administracija/guides/${article.id}?lang=hr`);
 }
 
 export async function saveArticle(articleId: string, languageId: string, form: FormData) {
@@ -107,7 +107,7 @@ export async function deleteArticle(articleId: string) {
     data: { deletedAt: new Date(), status: "ARCHIVED" },
   });
   await audit({ userId, action: "DELETE", entityType: "ARTICLE", entityId: articleId });
-  revalidatePath("/admin/guides");
+  revalidatePath("/administracija/guides");
 }
 
 /* ---------------- Editorial (The Varel Brief) ---------------- */
@@ -129,7 +129,7 @@ export async function createEditorial(form: FormData) {
     },
   });
   await audit({ userId, action: "CREATE", entityType: "EDITORIAL", entityId: post.id });
-  redirect(`/admin/editorial/${post.id}?lang=hr`);
+  redirect(`/administracija/editorial/${post.id}?lang=hr`);
 }
 
 export async function saveEditorial(postId: string, languageId: string, form: FormData) {
@@ -172,7 +172,7 @@ export async function deleteEditorial(postId: string) {
     data: { deletedAt: new Date(), status: "ARCHIVED" },
   });
   await audit({ userId, action: "DELETE", entityType: "EDITORIAL", entityId: postId });
-  revalidatePath("/admin/editorial");
+  revalidatePath("/administracija/editorial");
 }
 
 /* ---------------- News ---------------- */
@@ -193,7 +193,7 @@ export async function createNews(form: FormData) {
     },
   });
   await audit({ userId, action: "CREATE", entityType: "NEWS", entityId: news.id });
-  redirect(`/admin/news/${news.id}?lang=hr`);
+  redirect(`/administracija/news/${news.id}?lang=hr`);
 }
 
 export async function saveNews(newsId: string, languageId: string, form: FormData) {
@@ -248,7 +248,7 @@ export async function deleteNews(newsId: string) {
     data: { deletedAt: new Date(), status: "ARCHIVED" },
   });
   await audit({ userId, action: "DELETE", entityType: "NEWS", entityId: newsId });
-  revalidatePath("/admin/news");
+  revalidatePath("/administracija/news");
 }
 
 /* ---------------- Prompts ---------------- */
@@ -269,7 +269,7 @@ export async function createPrompt(form: FormData) {
     },
   });
   await audit({ userId, action: "CREATE", entityType: "PROMPT", entityId: prompt.id });
-  redirect(`/admin/prompts/${prompt.id}?lang=hr`);
+  redirect(`/administracija/prompts/${prompt.id}?lang=hr`);
 }
 
 export async function savePrompt(promptId: string, languageId: string, form: FormData) {
@@ -321,7 +321,7 @@ export async function deletePrompt(promptId: string) {
     data: { deletedAt: new Date(), status: "ARCHIVED" },
   });
   await audit({ userId, action: "DELETE", entityType: "PROMPT", entityId: promptId });
-  revalidatePath("/admin/prompts");
+  revalidatePath("/administracija/prompts");
 }
 
 /* ---------------- Deals ---------------- */
@@ -343,7 +343,7 @@ export async function createDeal(form: FormData) {
     },
   });
   await audit({ userId, action: "CREATE", entityType: "DEAL", entityId: deal.id });
-  redirect(`/admin/deals/${deal.id}?lang=hr`);
+  redirect(`/administracija/deals/${deal.id}?lang=hr`);
 }
 
 export async function saveDeal(dealId: string, languageId: string, form: FormData) {
@@ -403,7 +403,7 @@ export async function deleteDeal(dealId: string) {
     data: { deletedAt: new Date(), status: "ARCHIVED" },
   });
   await audit({ userId, action: "DELETE", entityType: "DEAL", entityId: dealId });
-  revalidatePath("/admin/deals");
+  revalidatePath("/administracija/deals");
 }
 
 /* ---------------- Comparisons ---------------- */
@@ -424,7 +424,7 @@ export async function createComparison(form: FormData) {
     },
   });
   await audit({ userId, action: "CREATE", entityType: "COMPARISON", entityId: cmp.id });
-  redirect(`/admin/comparisons/${cmp.id}?lang=hr`);
+  redirect(`/administracija/comparisons/${cmp.id}?lang=hr`);
 }
 
 export async function saveComparison(comparisonId: string, languageId: string, form: FormData) {
@@ -491,5 +491,5 @@ export async function deleteComparison(comparisonId: string) {
     data: { deletedAt: new Date(), status: "ARCHIVED" },
   });
   await audit({ userId, action: "DELETE", entityType: "COMPARISON", entityId: comparisonId });
-  revalidatePath("/admin/comparisons");
+  revalidatePath("/administracija/comparisons");
 }

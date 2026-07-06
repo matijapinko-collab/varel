@@ -46,5 +46,5 @@ export async function ensureMenus() {
       });
     }
   }
-  revalidatePath("/admin/menus");
+  revalidatePath("/administracija/menus");
 }

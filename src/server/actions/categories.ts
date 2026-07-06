@@ -23,7 +23,7 @@ export async function createCategory(form: FormData) {
     });
   }
   await audit({ userId, action: "CREATE", entityType: "CATEGORY", entityId: category.id });
-  redirect(`/admin/categories/${category.id}`);
+  redirect(`/administracija/categories/${category.id}`);
 }
 
 export async function saveCategory(categoryId: string, languageId: string, form: FormData) {
@@ -67,5 +67,5 @@ export async function deleteCategory(categoryId: string) {
     data: { deletedAt: new Date(), status: "ARCHIVED" },
   });
   await audit({ userId, action: "DELETE", entityType: "CATEGORY", entityId: categoryId });
-  revalidatePath("/admin/categories");
+  revalidatePath("/administracija/categories");
 }

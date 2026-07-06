@@ -13,7 +13,7 @@ export async function saveAnalyticsSettings(form: FormData) {
   await setSetting("google_tag_manager_id", fd(form, "google_tag_manager_id"));
   await setSetting("search_console_verification", fd(form, "search_console_verification"));
   await audit({ userId, action: "SETTINGS_UPDATE", entityType: "SETTINGS", details: { section: "analytics" } });
-  revalidatePath("/admin/analytics");
+  revalidatePath("/administracija/analytics");
   revalidatePath("/", "layout");
 }
 

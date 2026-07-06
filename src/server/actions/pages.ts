@@ -24,7 +24,7 @@ export async function createPage(form: FormData) {
     },
   });
   await audit({ userId, action: "CREATE", entityType: "PAGE", entityId: page.id });
-  redirect(`/admin/pages/${page.id}`);
+  redirect(`/administracija/pages/${page.id}`);
 }
 
 export async function savePageSettings(pageId: string, form: FormData) {
@@ -64,7 +64,7 @@ export async function deletePage(pageId: string) {
     data: { deletedAt: new Date(), status: "ARCHIVED", isHomepage: false },
   });
   await audit({ userId, action: "DELETE", entityType: "PAGE", entityId: pageId });
-  revalidatePath("/admin/pages");
+  revalidatePath("/administracija/pages");
 }
 
 /* ---------------- Blocks (page builder) ---------------- */
@@ -88,7 +88,7 @@ export async function addBlock(pageId: string, form: FormData) {
     },
   });
   await audit({ userId, action: "UPDATE", entityType: "PAGE", entityId: pageId, details: { addedBlock: type } });
-  revalidatePath(`/admin/pages/${pageId}`);
+  revalidatePath(`/administracija/pages/${pageId}`);
 }
 
 /** Saves a block using the friendly per-field form generated from BLOCK_SCHEMAS. */
@@ -140,7 +140,7 @@ export async function saveBlockFields(blockId: string, form: FormData) {
     },
   });
   await audit({ userId, action: "UPDATE", entityType: "PAGE_BLOCK", entityId: blockId });
-  if (block.pageId) revalidatePath(`/admin/pages/${block.pageId}`);
+  if (block.pageId) revalidatePath(`/administracija/pages/${block.pageId}`);
   revalidatePath("/", "layout");
 }
 
@@ -161,7 +161,7 @@ export async function saveBlock(blockId: string, form: FormData) {
     data: { contentJson, settingsJson },
   });
   await audit({ userId, action: "UPDATE", entityType: "PAGE_BLOCK", entityId: blockId });
-  revalidatePath(`/admin/pages/${block.pageId}`);
+  revalidatePath(`/administracija/pages/${block.pageId}`);
   revalidatePath("/", "layout");
 }
 
@@ -182,7 +182,7 @@ export async function moveBlock(blockId: string, direction: "up" | "down") {
     db.pageBlock.update({ where: { id: block.id }, data: { position: swapWith.position } }),
     db.pageBlock.update({ where: { id: swapWith.id }, data: { position: block.position } }),
   ]);
-  revalidatePath(`/admin/pages/${block.pageId}`);
+  revalidatePath(`/administracija/pages/${block.pageId}`);
   revalidatePath("/", "layout");
 }
 
@@ -194,7 +194,7 @@ export async function toggleBlockHidden(blockId: string) {
     where: { id: blockId },
     data: { isHidden: !block.isHidden },
   });
-  revalidatePath(`/admin/pages/${block.pageId}`);
+  revalidatePath(`/administracija/pages/${block.pageId}`);
   revalidatePath("/", "layout");
 }
 
@@ -217,12 +217,12 @@ export async function duplicateBlock(blockId: string) {
       isHidden: block.isHidden,
     },
   });
-  revalidatePath(`/admin/pages/${block.pageId}`);
+  revalidatePath(`/administracija/pages/${block.pageId}`);
 }
 
 export async function deleteBlock(blockId: string) {
   await requirePermission("content.edit");
   const block = await db.pageBlock.delete({ where: { id: blockId } });
-  if (block.pageId) revalidatePath(`/admin/pages/${block.pageId}`);
+  if (block.pageId) revalidatePath(`/administracija/pages/${block.pageId}`);
   revalidatePath("/", "layout");
 }

@@ -9,7 +9,7 @@ import {
 /**
  * Next.js 16 proxy (formerly middleware).
  * 1. Locale routing: prefixes public routes with a locale (/en/..., /hr/...).
- * 2. Optimistic admin protection: redirects to /admin/login when no session
+ * 2. Optimistic admin protection: redirects to /administracija when no session
  *    cookie is present. Real authorization happens in the admin layout and
  *    in every server action (defense in depth).
  */
@@ -31,14 +31,22 @@ function pickLocale(request: NextRequest): string {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Legacy admin route → canonical /administracija.
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    const rest = pathname.slice("/admin".length); // "" or "/…"
+    const url = new URL(`/administracija${rest}`, request.url);
+    url.search = request.nextUrl.search;
+    return NextResponse.redirect(url);
+  }
+
   // Admin: optimistic session check (cookie presence only).
-  if (pathname.startsWith("/admin")) {
-    if (pathname === "/admin/login") return NextResponse.next();
+  if (pathname.startsWith("/administracija")) {
+    if (pathname === "/administracija") return NextResponse.next();
     const hasSession =
       request.cookies.has("authjs.session-token") ||
       request.cookies.has("__Secure-authjs.session-token");
     if (!hasSession) {
-      const url = new URL("/admin/login", request.url);
+      const url = new URL("/administracija", request.url);
       url.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(url);
     }

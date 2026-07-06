@@ -27,7 +27,7 @@ export async function saveLanguage(languageId: string, form: FormData) {
     });
   }
   await audit({ userId, action: "SETTINGS_UPDATE", entityType: "LANGUAGE", entityId: languageId });
-  revalidatePath("/admin/languages");
+  revalidatePath("/administracija/languages");
   revalidatePath("/", "layout");
 }
 
@@ -44,7 +44,7 @@ export async function addLanguage(form: FormData) {
     update: { isEnabled: true },
   });
   await audit({ userId, action: "SETTINGS_UPDATE", entityType: "LANGUAGE", details: { added: code } });
-  revalidatePath("/admin/languages");
+  revalidatePath("/administracija/languages");
 }
 
 /* ---------------- Users ---------------- */
@@ -70,7 +70,7 @@ export async function createUser(form: FormData) {
     },
   });
   await audit({ userId, action: "CREATE", entityType: "USER", entityId: user.id });
-  revalidatePath("/admin/users");
+  revalidatePath("/administracija/users");
 }
 
 export async function updateUser(targetUserId: string, form: FormData) {
@@ -104,7 +104,7 @@ export async function updateUser(targetUserId: string, form: FormData) {
     entityId: targetUserId,
     details: { role: role.type },
   });
-  revalidatePath("/admin/users");
+  revalidatePath("/administracija/users");
 }
 
 /** Step 1 of 2FA setup: generate a secret and otpauth URI for the current user. */
@@ -135,7 +135,7 @@ export async function enableTwoFactor(form: FormData) {
   }
   await db.user.update({ where: { id: userId }, data: { twoFactorEnabled: true } });
   await audit({ userId, action: "SETTINGS_UPDATE", entityType: "USER", entityId: userId, details: { twoFactor: "enabled" } });
-  revalidatePath("/admin/users");
+  revalidatePath("/administracija/users");
 }
 
 /* ---------------- Version manager & backups ---------------- */
@@ -163,7 +163,7 @@ export async function createVersion(form: FormData) {
     },
   });
   await audit({ userId, action: "VERSION_UPDATE", entityType: "APP_VERSION", entityId: v.id, details: { created: version } });
-  revalidatePath("/admin/versions");
+  revalidatePath("/administracija/versions");
 }
 
 export async function setVersionStatus(versionId: string, status: VersionStatus) {
@@ -182,7 +182,7 @@ export async function setVersionStatus(versionId: string, status: VersionStatus)
     entityId: versionId,
     details: { status },
   });
-  revalidatePath("/admin/versions");
+  revalidatePath("/administracija/versions");
 }
 
 export async function recordBackup(form: FormData) {
@@ -196,5 +196,5 @@ export async function recordBackup(form: FormData) {
     },
   });
   await audit({ userId, action: "BACKUP_CREATED", entityType: "BACKUP" });
-  revalidatePath("/admin/versions");
+  revalidatePath("/administracija/versions");
 }

@@ -22,7 +22,7 @@ declare module "next-auth" {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt", maxAge: 60 * 60 * 8 }, // 8h session expiration
-  pages: { signIn: "/admin/login" },
+  pages: { signIn: "/administracija" },
   providers: [
     Credentials({
       credentials: {

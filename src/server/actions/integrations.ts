@@ -42,7 +42,7 @@ export async function testAmazonConnection() {
       entityId: "amazon-paapi",
       details: { test: "not_configured" },
     });
-    revalidatePath("/admin/integrations");
+    revalidatePath("/administracija/integrations");
     return;
   }
 
@@ -66,7 +66,7 @@ export async function testAmazonConnection() {
     entityId: "amazon-paapi",
     details: { test: status.lastError ? "failed" : "success" },
   });
-  revalidatePath("/admin/integrations");
+  revalidatePath("/administracija/integrations");
 }
 
 /** Saves non-secret Varel Price Checker settings. */
@@ -101,6 +101,6 @@ export async function savePriceCheckerSettings(form: FormData) {
     entityType: "SETTINGS",
     details: { section: "price_checker" },
   });
-  revalidatePath("/admin/price-checker");
+  revalidatePath("/administracija/price-checker");
   revalidatePath("/", "layout");
 }
