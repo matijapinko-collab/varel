@@ -10,37 +10,135 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
 import { requirePermission, fd, slugify } from "./helpers";
 import { sanitizePostHtml } from "@/lib/sanitize";
+import {
+  blockingIssues,
+  seoChecks,
+  llmChecks,
+  score,
+  type PostSnapshot,
+  type SourceRef,
+} from "@/lib/post-validation";
 import type { ContentStatus } from "@/generated/prisma/client";
 
 const LIST = "/administracija/posts";
 
 export type PostSaveInput = {
+  action: "draft" | "publish" | "update";
   title: string;
   slug: string;
   excerpt: string;
   body: string;
   focusKeyword: string;
-  action: "draft" | "publish" | "update";
   scheduledAt: string | null;
   featuredImageId: string | null;
+  featuredImageAlt: string;
+  // Category
+  primaryCategoryId: string | null;
+  secondaryCategoryIds: string[];
+  // SEO
   seo: {
     metaTitle: string;
     metaDescription: string;
+    secondaryKeywords: string[];
     canonicalUrl: string;
     ogTitle: string;
     ogDescription: string;
+    ogImageId: string | null;
+    twitterTitle: string;
+    twitterDescription: string;
     robotsIndex: boolean;
     robotsFollow: boolean;
   };
+  // LLM / AI search
+  llm: {
+    aiSummary: string;
+    directAnswer: string;
+    keyTakeaways: string[];
+    bestFor: string[];
+    notIdealFor: string[];
+    mentionedEntityIds: string[];
+    mentionedEntitiesText: string;
+    faq: { question: string; answer: string }[];
+    sources: SourceRef[];
+    reviewerId: string | null;
+    lastReviewedAt: string | null;
+  };
+  // Pros / Cons
+  prosCons: { enabled: boolean; heading: string; intro: string; pros: string[]; cons: string[] };
+  // Comparison
+  comparison: {
+    enabled: boolean;
+    toolAId: string | null;
+    toolBId: string | null;
+    heading: string;
+    summary: string;
+    ctaLabel: string;
+    ctaUrl: string;
+  };
+  // Varel Verdict
+  verdict: {
+    enabled: boolean;
+    headline: string;
+    summary: string;
+    bestFor: string;
+    skipIf: string;
+    rating: number | null;
+  };
 };
+
+function snapshotOf(input: PostSaveInput): PostSnapshot {
+  return {
+    title: input.title,
+    slug: input.slug,
+    excerpt: input.excerpt,
+    body: input.body,
+    featuredImageId: input.featuredImageId,
+    featuredImageAlt: input.featuredImageAlt,
+    primaryCategoryId: input.primaryCategoryId,
+    seoTitle: input.seo.metaTitle,
+    seoDescription: input.seo.metaDescription,
+    focusKeyword: input.focusKeyword,
+    canonicalUrl: input.seo.canonicalUrl,
+    robotsIndex: input.seo.robotsIndex,
+    aiSummary: input.llm.aiSummary,
+    directAnswer: input.llm.directAnswer,
+    keyTakeaways: input.llm.keyTakeaways,
+    bestFor: input.llm.bestFor,
+    notIdealFor: input.llm.notIdealFor,
+    mentionedEntityIds: input.llm.mentionedEntityIds,
+    mentionedEntitiesText: input.llm.mentionedEntitiesText,
+    faq: input.llm.faq,
+    lastReviewedAt: input.llm.lastReviewedAt,
+    reviewerId: input.llm.reviewerId,
+    prosConsEnabled: input.prosCons.enabled,
+    pros: input.prosCons.pros,
+    cons: input.prosCons.cons,
+    comparisonEnabled: input.comparison.enabled,
+    comparisonToolAId: input.comparison.toolAId,
+    comparisonToolBId: input.comparison.toolBId,
+  };
+}
+
+const clean = (arr: string[]) => arr.map((s) => s.trim()).filter(Boolean);
 
 /** Full save from the classic editor. Handles Save Draft / Publish / Update. */
 export async function savePost(
   id: string,
   languageId: string,
   input: PostSaveInput
-): Promise<{ ok: boolean; status: ContentStatus; message: string }> {
+): Promise<{ ok: boolean; blocked?: boolean; issues?: string[]; status?: ContentStatus; message: string }> {
   const { userId } = await requirePermission("content.edit");
+
+  const snap = snapshotOf(input);
+  const publishing = input.action === "publish" || input.action === "update";
+
+  // Enforce publish validation server-side (defense in depth).
+  if (publishing) {
+    const issues = blockingIssues(snap);
+    if (issues.length > 0) {
+      return { ok: false, blocked: true, issues: issues.map((i) => i.label), message: "Complete required fields before publishing." };
+    }
+  }
 
   const scheduled = input.scheduledAt ? new Date(input.scheduledAt) : null;
   const willSchedule = scheduled != null && scheduled.getTime() > Date.now();
@@ -49,7 +147,7 @@ export async function savePost(
   let message: string;
   if (input.action === "publish") {
     await requirePermission("content.publish");
-    status = willSchedule ? "REVIEW" : "PUBLISHED";
+    status = willSchedule ? "SCHEDULED" : "PUBLISHED";
     message = willSchedule ? "Post scheduled." : "Post published.";
   } else if (input.action === "update") {
     await requirePermission("content.publish");
@@ -61,6 +159,8 @@ export async function savePost(
   }
 
   const existing = await db.article.findUnique({ where: { id }, select: { publishedAt: true } });
+  const seoCompletionScore = score([...seoChecks(snap)]);
+  const llmCompletionScore = score([...llmChecks(snap)]);
 
   await db.article.update({
     where: { id },
@@ -68,8 +168,16 @@ export async function savePost(
       status,
       featuredImageId: input.featuredImageId,
       scheduledAt: scheduled,
-      publishedAt:
-        status === "PUBLISHED" ? existing?.publishedAt ?? new Date() : existing?.publishedAt ?? null,
+      publishedAt: status === "PUBLISHED" ? existing?.publishedAt ?? new Date() : existing?.publishedAt ?? null,
+      primaryCategoryId: input.primaryCategoryId,
+      secondaryCategoryIdsJson: input.secondaryCategoryIds,
+      prosConsEnabled: input.prosCons.enabled,
+      comparisonEnabled: input.comparison.enabled,
+      comparisonToolAId: input.comparison.enabled ? input.comparison.toolAId : null,
+      comparisonToolBId: input.comparison.enabled ? input.comparison.toolBId : null,
+      varelVerdictEnabled: input.verdict.enabled,
+      reviewerId: input.llm.reviewerId,
+      lastReviewedAt: input.llm.lastReviewedAt ? new Date(input.llm.lastReviewedAt) : null,
     },
   });
 
@@ -80,7 +188,33 @@ export async function savePost(
     excerpt: input.excerpt || null,
     body: input.body ? sanitizePostHtml(input.body) : null,
     focusKeyword: input.focusKeyword || null,
+    secondaryKeywordsJson: clean(input.seo.secondaryKeywords),
     status,
+    featuredImageAlt: input.featuredImageAlt || null,
+    prosConsHeading: input.prosCons.heading || null,
+    prosConsIntro: input.prosCons.intro || null,
+    prosJson: clean(input.prosCons.pros),
+    consJson: clean(input.prosCons.cons),
+    comparisonHeading: input.comparison.heading || null,
+    comparisonSummary: input.comparison.summary || null,
+    comparisonCtaLabel: input.comparison.ctaLabel || null,
+    comparisonCtaUrl: input.comparison.ctaUrl || null,
+    aiSummary: input.llm.aiSummary || null,
+    directAnswer: input.llm.directAnswer || null,
+    keyTakeawaysJson: clean(input.llm.keyTakeaways),
+    bestForJson: clean(input.llm.bestFor),
+    notIdealForJson: clean(input.llm.notIdealFor),
+    mentionedEntityIdsJson: input.llm.mentionedEntityIds,
+    mentionedEntitiesText: input.llm.mentionedEntitiesText || null,
+    sourceReferencesJson: input.llm.sources.filter((s) => s.title.trim() || s.url.trim()),
+    faqJson: input.llm.faq.filter((f) => f.question.trim() && f.answer.trim()),
+    varelVerdictHeadline: input.verdict.headline || null,
+    varelVerdictSummary: input.verdict.summary || null,
+    varelVerdictBestFor: input.verdict.bestFor || null,
+    varelVerdictSkipIf: input.verdict.skipIf || null,
+    varelVerdictRating: input.verdict.rating,
+    seoCompletionScore,
+    llmCompletionScore,
   };
   await db.articleTranslation.upsert({
     where: { articleId_languageId: { articleId: id, languageId } },
@@ -93,9 +227,13 @@ export async function savePost(
   const seoData = {
     metaTitle: input.seo.metaTitle || null,
     metaDescription: input.seo.metaDescription || null,
+    secondaryKeywordsJson: clean(input.seo.secondaryKeywords),
     canonicalUrl: input.seo.canonicalUrl || null,
     ogTitle: input.seo.ogTitle || null,
     ogDescription: input.seo.ogDescription || null,
+    ogImageId: input.seo.ogImageId,
+    twitterTitle: input.seo.twitterTitle || null,
+    twitterDescription: input.seo.twitterDescription || null,
     focusKeyword: input.focusKeyword || null,
     robots,
   };
@@ -105,14 +243,12 @@ export async function savePost(
     update: seoData,
   });
 
-  const auditAction =
-    input.action === "publish" ? "PUBLISH" : input.action === "update" ? "UPDATE" : "UPDATE";
   await audit({
     userId,
-    action: auditAction,
+    action: input.action === "publish" ? "PUBLISH" : "UPDATE",
     entityType: "ARTICLE",
     entityId: id,
-    details: { editor: "classic", action: input.action },
+    details: { editor: "classic", action: input.action, seoCompletionScore, llmCompletionScore },
   });
   revalidatePath(LIST);
   revalidatePath("/", "layout");

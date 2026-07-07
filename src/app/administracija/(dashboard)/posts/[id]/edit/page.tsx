@@ -1,8 +1,26 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { PostEditor, type PostEditorData } from "@/components/admin/editor/post-editor";
+import { PostEditor, type PostEditorData, type EditorOptions } from "@/components/admin/editor/post-editor";
 
 export const dynamic = "force-dynamic";
+
+function toStrings(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+function toFaq(v: unknown): { question: string; answer: string }[] {
+  return Array.isArray(v)
+    ? v
+        .filter((x): x is { question: string; answer: string } => !!x && typeof x === "object")
+        .map((x) => ({ question: String(x.question ?? ""), answer: String(x.answer ?? "") }))
+    : [];
+}
+function toSources(v: unknown): { title: string; url: string; note?: string }[] {
+  return Array.isArray(v)
+    ? v
+        .filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
+        .map((x) => ({ title: String(x.title ?? ""), url: String(x.url ?? ""), note: x.note ? String(x.note) : "" }))
+    : [];
+}
 
 export default async function EditPostPage(props: PageProps<"/administracija/posts/[id]/edit">) {
   const { id } = await props.params;
@@ -18,7 +36,21 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
   });
   if (!article) notFound();
 
-  const languages = await db.language.findMany({ where: { isEnabled: true }, orderBy: { position: "asc" } });
+  const [languages, categories, tools, reviewers] = await Promise.all([
+    db.language.findMany({ where: { isEnabled: true }, orderBy: { position: "asc" } }),
+    db.category.findMany({
+      where: { deletedAt: null, status: "PUBLISHED" },
+      orderBy: { position: "asc" },
+      include: { translations: { select: { name: true, languageId: true } } },
+    }),
+    db.tool.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    db.user.findMany({ where: { isActive: true, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
+
   const language = languages.find((l) => l.code === langCode) ?? languages.find((l) => l.code === "hr") ?? languages[0];
   const tr = article.translations.find((t) => t.languageId === language.id);
 
@@ -40,6 +72,11 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
   const robots = seo?.robots ?? "index,follow";
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
+  const categoryName = (c: (typeof categories)[number]) =>
+    c.translations.find((t) => t.languageId === language.id)?.name ??
+    c.translations[0]?.name ??
+    c.slug;
+
   const data: PostEditorData = {
     id: article.id,
     languageId: language.id,
@@ -52,26 +89,72 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
     status: article.status,
     featuredImageId: article.featuredImageId,
     featuredImageUrl: featured?.url ?? null,
+    featuredImageAlt: tr?.featuredImageAlt ?? "",
     scheduledAt: article.scheduledAt ? article.scheduledAt.toISOString().slice(0, 16) : null,
     publishedAt: article.publishedAt?.toISOString() ?? null,
     updatedAt: article.updatedAt.toISOString(),
     author: article.author?.name ?? "—",
+    primaryCategoryId: article.primaryCategoryId,
+    secondaryCategoryIds: toStrings(article.secondaryCategoryIdsJson),
     seo: {
       metaTitle: seo?.metaTitle ?? "",
       metaDescription: seo?.metaDescription ?? "",
+      secondaryKeywords: toStrings(seo?.secondaryKeywordsJson),
       canonicalUrl: seo?.canonicalUrl ?? "",
       ogTitle: seo?.ogTitle ?? "",
       ogDescription: seo?.ogDescription ?? "",
+      ogImageId: seo?.ogImageId ?? null,
+      twitterTitle: seo?.twitterTitle ?? "",
+      twitterDescription: seo?.twitterDescription ?? "",
       robotsIndex: !robots.includes("noindex"),
       robotsFollow: !robots.includes("nofollow"),
     },
+    llm: {
+      aiSummary: tr?.aiSummary ?? "",
+      directAnswer: tr?.directAnswer ?? "",
+      keyTakeaways: toStrings(tr?.keyTakeawaysJson),
+      bestFor: toStrings(tr?.bestForJson),
+      notIdealFor: toStrings(tr?.notIdealForJson),
+      mentionedEntityIds: toStrings(tr?.mentionedEntityIdsJson),
+      mentionedEntitiesText: tr?.mentionedEntitiesText ?? "",
+      faq: toFaq(tr?.faqJson),
+      sources: toSources(tr?.sourceReferencesJson),
+      reviewerId: article.reviewerId,
+      lastReviewedAt: article.lastReviewedAt ? article.lastReviewedAt.toISOString().slice(0, 10) : null,
+    },
+    prosCons: {
+      enabled: article.prosConsEnabled,
+      heading: tr?.prosConsHeading ?? "",
+      intro: tr?.prosConsIntro ?? "",
+      pros: toStrings(tr?.prosJson),
+      cons: toStrings(tr?.consJson),
+    },
+    comparison: {
+      enabled: article.comparisonEnabled,
+      toolAId: article.comparisonToolAId,
+      toolBId: article.comparisonToolBId,
+      heading: tr?.comparisonHeading ?? "",
+      summary: tr?.comparisonSummary ?? "",
+      ctaLabel: tr?.comparisonCtaLabel ?? "",
+      ctaUrl: tr?.comparisonCtaUrl ?? "",
+    },
+    verdict: {
+      enabled: article.varelVerdictEnabled,
+      headline: tr?.varelVerdictHeadline ?? "",
+      summary: tr?.varelVerdictSummary ?? "",
+      bestFor: tr?.varelVerdictBestFor ?? "",
+      skipIf: tr?.varelVerdictSkipIf ?? "",
+      rating: tr?.varelVerdictRating ?? null,
+    },
   };
 
-  return (
-    <PostEditor
-      data={data}
-      media={media.map((m) => ({ id: m.id, url: m.url, name: m.filename }))}
-      siteUrl={siteUrl}
-    />
-  );
+  const options: EditorOptions = {
+    categories: categories.map((c) => ({ id: c.id, name: categoryName(c) })),
+    tools: tools.map((t) => ({ id: t.id, name: t.name })),
+    reviewers: reviewers.map((u) => ({ id: u.id, name: u.name })),
+    media: media.map((m) => ({ id: m.id, url: m.url, name: m.filename })),
+    siteUrl,
+  };
+
+  return <PostEditor data={data} options={options} />;
 }

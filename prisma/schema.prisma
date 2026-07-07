@@ -203,18 +203,19 @@ model User {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  role           Role            @relation(fields: [roleId], references: [id])
-  auditLogs      AuditLog[]
-  articles       Article[]
-  editorialPosts EditorialPost[]
-  media          Media[]
-  pagesCreated   Page[]          @relation("PageCreatedBy")
-  newsItems      NewsItem[]
-  comparisons    Comparison[]
-  prompts        Prompt[]
-  appVersions    AppVersion[]
-  backups        Backup[]
-  globalSections GlobalSection[]
+  role             Role            @relation(fields: [roleId], references: [id])
+  auditLogs        AuditLog[]
+  articles         Article[]       @relation("ArticleAuthor")
+  reviewedArticles Article[]       @relation("ArticleReviewer")
+  editorialPosts   EditorialPost[]
+  media            Media[]
+  pagesCreated     Page[]          @relation("PageCreatedBy")
+  newsItems        NewsItem[]
+  comparisons      Comparison[]
+  prompts          Prompt[]
+  appVersions      AppVersion[]
+  backups          Backup[]
+  globalSections   GlobalSection[]
 
   @@map("users")
 }
@@ -484,20 +485,22 @@ model Tool {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  logo            Media?            @relation("ToolLogo", fields: [logoId], references: [id])
-  translations    ToolTranslation[]
-  categories      ToolCategory[]
-  features        ToolFeature[]
-  pricingPlans    ToolPricing[]
-  screenshots     ToolScreenshot[]
-  alternatives    ToolAlternative[] @relation("ToolAlternatives")
-  alternativeOf   ToolAlternative[] @relation("AlternativeTool")
-  affiliateLinks  AffiliateLink[]
-  articleTools    ArticleTool[]
-  comparisonTools ComparisonTool[]
-  newsRelations   NewsRelatedTool[]
-  offers          ProductOffer[]
-  dealsAsProduct  Deal[]            @relation("DealProduct")
+  logo                Media?            @relation("ToolLogo", fields: [logoId], references: [id])
+  translations        ToolTranslation[]
+  categories          ToolCategory[]
+  features            ToolFeature[]
+  pricingPlans        ToolPricing[]
+  screenshots         ToolScreenshot[]
+  alternatives        ToolAlternative[] @relation("ToolAlternatives")
+  alternativeOf       ToolAlternative[] @relation("AlternativeTool")
+  affiliateLinks      AffiliateLink[]
+  articleTools        ArticleTool[]
+  comparisonAArticles Article[]         @relation("ComparisonToolA")
+  comparisonBArticles Article[]         @relation("ComparisonToolB")
+  comparisonTools     ComparisonTool[]
+  newsRelations       NewsRelatedTool[]
+  offers              ProductOffer[]
+  dealsAsProduct      Deal[]            @relation("DealProduct")
 
   @@index([status])
   @@map("tools")
@@ -550,6 +553,7 @@ model Category {
   featuredImage   Media?                @relation("CategoryFeaturedImage", fields: [featuredImageId], references: [id])
   translations    CategoryTranslation[]
   tools           ToolCategory[]
+  primaryArticles Article[]             @relation("ArticlePrimaryCategory")
 
   @@map("categories")
 }
@@ -664,13 +668,29 @@ model Article {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  author         User?                  @relation(fields: [authorId], references: [id])
-  featuredImage  Media?                 @relation("ArticleFeaturedImage", fields: [featuredImageId], references: [id])
-  translations   ArticleTranslation[]
-  tools          ArticleTool[]
-  affiliateLinks ArticleAffiliateLink[]
+  // Standardized post structure (language-independent references + toggles).
+  primaryCategoryId        String?
+  secondaryCategoryIdsJson Json?
+  prosConsEnabled          Boolean   @default(false)
+  comparisonEnabled        Boolean   @default(false)
+  comparisonToolAId        String?
+  comparisonToolBId        String?
+  varelVerdictEnabled      Boolean   @default(false)
+  reviewerId               String?
+  lastReviewedAt           DateTime?
+
+  author          User?                  @relation("ArticleAuthor", fields: [authorId], references: [id])
+  reviewer        User?                  @relation("ArticleReviewer", fields: [reviewerId], references: [id])
+  featuredImage   Media?                 @relation("ArticleFeaturedImage", fields: [featuredImageId], references: [id])
+  primaryCategory Category?              @relation("ArticlePrimaryCategory", fields: [primaryCategoryId], references: [id])
+  comparisonToolA Tool?                  @relation("ComparisonToolA", fields: [comparisonToolAId], references: [id])
+  comparisonToolB Tool?                  @relation("ComparisonToolB", fields: [comparisonToolBId], references: [id])
+  translations    ArticleTranslation[]
+  tools           ArticleTool[]
+  affiliateLinks  ArticleAffiliateLink[]
 
   @@index([status])
+  @@index([primaryCategoryId])
   @@map("articles")
 }
 
@@ -687,8 +707,41 @@ model ArticleTranslation {
   focusKeyword          String?
   secondaryKeywordsJson Json?
   status                ContentStatus @default(DRAFT)
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+
+  // Language-dependent structured post content.
+  featuredImageAlt       String?
+  // Pros / Cons module
+  prosConsHeading        String?
+  prosConsIntro          String? @db.Text
+  prosJson               Json?
+  consJson               Json?
+  // Comparison box copy
+  comparisonHeading      String?
+  comparisonSummary      String? @db.Text
+  comparisonCtaLabel     String?
+  comparisonCtaUrl       String?
+  // LLM / AI search optimization
+  aiSummary              String? @db.Text
+  directAnswer           String? @db.Text
+  keyTakeawaysJson       Json?
+  bestForJson            Json?
+  notIdealForJson        Json?
+  mentionedEntityIdsJson Json?
+  mentionedEntitiesText  String? @db.Text
+  sourceReferencesJson   Json?
+  // Varel Verdict box
+  varelVerdictHeadline   String?
+  varelVerdictSummary    String? @db.Text
+  varelVerdictBestFor    String?
+  varelVerdictSkipIf     String?
+  varelVerdictRating     Float?
+  // Completion tracking
+  seoCompletionScore     Int?
+  llmCompletionScore     Int?
+  publishChecklistJson   Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   article  Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
   language Language @relation(fields: [languageId], references: [id])
