@@ -51,6 +51,7 @@ export default async function PostsPage(props: PageProps<"/administracija/posts"
       include: {
         author: { select: { name: true } },
         translations: { include: { language: { select: { code: true } } } },
+        primaryCategory: { include: { translations: { select: { name: true, languageId: true } } } },
       },
     }),
     Promise.all([
@@ -77,6 +78,10 @@ export default async function PostsPage(props: PageProps<"/administracija/posts"
       a.translations.find((t) => t.language.code === (langFilter || "hr")) ??
       a.translations.find((t) => t.language.code === "hr") ??
       a.translations[0];
+    const catName =
+      a.primaryCategory?.translations.find((ct) => ct.languageId === (tr?.languageId ?? ""))?.name ??
+      a.primaryCategory?.translations[0]?.name ??
+      null;
     return {
       id: a.id,
       title: tr?.title ?? "(untitled)",
@@ -89,6 +94,9 @@ export default async function PostsPage(props: PageProps<"/administracija/posts"
       publishedAt: a.publishedAt?.toISOString() ?? null,
       trashed: a.deletedAt != null,
       seoOk: Boolean(tr?.focusKeyword) && a.featuredImageId != null,
+      seoScore: tr?.seoCompletionScore ?? null,
+      aiScore: tr?.llmCompletionScore ?? null,
+      category: catName,
       previewLocale: tr?.language.code ?? "hr",
     };
   });

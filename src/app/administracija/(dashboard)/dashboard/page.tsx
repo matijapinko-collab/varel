@@ -21,6 +21,8 @@ type RecentItem = {
   status: string;
   author: string;
   updatedAt: Date;
+  seoScore: number | null;
+  aiScore: number | null;
 };
 
 export default async function AdminDashboard() {
@@ -111,6 +113,8 @@ export default async function AdminDashboard() {
       status: a.status,
       author: a.author?.name ?? "—",
       updatedAt: a.updatedAt,
+      seoScore: a.translations[0]?.seoCompletionScore ?? null,
+      aiScore: a.translations[0]?.llmCompletionScore ?? null,
     })),
     ...recentTools.map((t) => ({
       id: t.id,
@@ -121,6 +125,8 @@ export default async function AdminDashboard() {
       status: t.status,
       author: "—",
       updatedAt: t.updatedAt,
+      seoScore: null,
+      aiScore: null,
     })),
     ...recentComparisons.map((c) => ({
       id: c.id,
@@ -131,6 +137,8 @@ export default async function AdminDashboard() {
       status: c.status,
       author: "—",
       updatedAt: c.updatedAt,
+      seoScore: null,
+      aiScore: null,
     })),
   ]
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
@@ -203,11 +211,12 @@ export default async function AdminDashboard() {
               <div key={`${item.type}-${item.id}`} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{item.title}</div>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
                     <span>{item.type}</span>
                     <StatusDot status={item.status} />
                     <span>· {item.author}</span>
-                    <span>· {item.updatedAt.toLocaleDateString()}</span>
+                    {item.seoScore != null && <span>· SEO {item.seoScore}%</span>}
+                    {item.aiScore != null && <span>· AI {item.aiScore}%</span>}
                   </div>
                 </div>
                 <Link

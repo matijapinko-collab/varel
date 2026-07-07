@@ -23,6 +23,9 @@ export type PostRow = {
   publishedAt: string | null;
   trashed: boolean;
   seoOk: boolean;
+  seoScore: number | null;
+  aiScore: number | null;
+  category: string | null;
   previewLocale: string;
 };
 
@@ -85,11 +88,11 @@ export function PostsTable({ rows, languages }: { rows: PostRow[]; languages: La
               </th>
               <th className="px-3 py-2">Title</th>
               <th className="px-3 py-2">Author</th>
-              <th className="px-3 py-2">Languages</th>
+              <th className="px-3 py-2">Category</th>
               <th className="px-3 py-2">SEO</th>
+              <th className="px-3 py-2">AI Search</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Updated</th>
-              <th className="px-3 py-2">Published</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -123,20 +126,15 @@ export function PostsTable({ rows, languages }: { rows: PostRow[]; languages: La
                       <RowActions row={row} onQuickEdit={() => setEditing(row.id)} />
                     </td>
                     <td className="px-3 py-2.5 text-muted">{row.author}</td>
-                    <td className="px-3 py-2.5 text-xs uppercase text-muted">{row.languages.join(", ")}</td>
-                    <td className="px-3 py-2.5">
-                      <span
-                        className={`inline-block h-2.5 w-2.5 rounded-full ${row.seoOk ? "bg-green-500" : "bg-amber-500"}`}
-                        title={row.seoOk ? "Focus keyword + featured image set" : "Missing focus keyword or featured image"}
-                      />
+                    <td className="px-3 py-2.5 text-xs">
+                      {row.category ? <span className="rounded bg-soft px-1.5 py-0.5 text-primary">{row.category}</span> : <span className="text-amber-600">— none —</span>}
                     </td>
+                    <td className="px-3 py-2.5"><ScoreCell score={row.seoScore} editUrl={`/administracija/posts/${row.id}/edit`} /></td>
+                    <td className="px-3 py-2.5"><ScoreCell score={row.aiScore} editUrl={`/administracija/posts/${row.id}/edit`} /></td>
                     <td className="px-3 py-2.5">
                       <StatusBadge status={row.trashed ? "TRASH" : row.status} />
                     </td>
                     <td className="px-3 py-2.5 text-xs text-muted">{fmtDate(row.updatedAt)}</td>
-                    <td className="px-3 py-2.5 text-xs text-muted">
-                      {row.publishedAt ? fmtDate(row.publishedAt) : "—"}
-                    </td>
                   </>
                 )}
               </tr>
@@ -220,6 +218,17 @@ function QuickEdit({ row, languages, onDone }: { row: PostRow; languages: Lang[]
       {/* languages prop reserved for future multi-language quick edit */}
       <span className="hidden">{languages.length}</span>
     </form>
+  );
+}
+
+function ScoreCell({ score, editUrl }: { score: number | null; editUrl: string }) {
+  if (score == null) {
+    return <Link href={editUrl} className="text-xs text-muted hover:text-primary">Needs review</Link>;
+  }
+  const cls = score >= 70 ? "bg-green-500/10 text-green-600" : score >= 40 ? "bg-amber-500/10 text-amber-600" : "bg-red-500/10 text-red-600";
+  const label = score >= 100 ? "Complete" : `${score}%`;
+  return (
+    <Link href={editUrl} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}>{label}</Link>
   );
 }
 
