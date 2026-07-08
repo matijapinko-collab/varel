@@ -34,6 +34,7 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
         url: `/${locale}/ai-tool-finder`,
         children: [
           { label: "AI Tool Finder", url: `/${locale}/ai-tool-finder` },
+          { label: "LLM Visibility Scanner", url: `/${locale}/varel-tools/llm-visibility-scanner` },
           { label: "Varel Price Checker", url: `/${locale}/best-deals` },
         ],
       },

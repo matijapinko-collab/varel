@@ -16,6 +16,7 @@ import {
   BadgePercent,
   Link2,
   Plug,
+  Radar,
   Image as ImageIcon,
   Menu as MenuIcon,
   Languages,
@@ -63,6 +64,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
     label: "Monetization",
     items: [
       { href: "/administracija/price-checker", label: "Best Deals / Price Checker", icon: BadgePercent },
+      { href: "/administracija/llm-reports", label: "LLM Reports", icon: Radar },
       { href: "/administracija/affiliate", label: "Affiliate Links", icon: Link2 },
     ],
   },

@@ -1477,3 +1477,60 @@ model PriceCheckerCache {
   @@index([expiresAt])
   @@map("price_checker_cache")
 }
+
+// -----------------------------------------------------------------
+// Varel LLM Visibility Scanner — lead + scan request.
+// Deterministic scanner (no LLM API). Scan results + generated report
+// are stored as JSON to keep the model lean.
+// -----------------------------------------------------------------
+model LlmScanRequest {
+  id                String  @id @default(cuid())
+  websiteUrl        String
+  normalizedDomain  String
+  email             String
+  name              String?
+  companyName       String?
+  preferredLanguage String  @default("en")
+
+  permissionConfirmed   Boolean   @default(false)
+  permissionConfirmedAt DateTime?
+  permissionIp          String?
+
+  freeScanCompleted Boolean @default(false)
+  freeScanScore     Int?
+  freeScanJson      Json?
+
+  detailedReportRequested Boolean @default(false)
+  pageSelectionMethod     String?
+  additionalUrlsJson      Json?
+
+  socialProfileAddon    Boolean @default(false)
+  socialProfileUrlsJson Json?
+  competitorAddon       Boolean @default(false)
+  competitorUrl         String?
+
+  basePrice  Int @default(20)
+  addonPrice Int @default(0)
+  totalPrice Int @default(20)
+
+  paymentMethod String @default("manual_offer")
+  paymentStatus String @default("not_sent")
+  reportStatus  String @default("lead_created")
+
+  finalReportApprovedByAdmin Boolean   @default(false)
+  approvedByAdminAt          DateTime?
+
+  privateReportToken String? @unique
+  publicShareSlug    String? @unique
+  publicShareEnabled Boolean @default(false)
+
+  reportJson Json?
+  adminNotes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reportStatus])
+  @@index([email])
+  @@map("llm_scan_requests")
+}
