@@ -28,7 +28,8 @@ export const CORE_QUESTIONS: QuizQuestion[] = [
   {
     key: "primary_goal",
     title: "What do you mainly want to use AI for?",
-    helper: "Pick the closest option. You can refine this later.",
+    helper: "Select all that apply — you can pick more than one.",
+    multi: true,
     options: [
       { key: "writing", label: "Writing and content creation", tags: ["writing", "content", "copywriting"] },
       { key: "seo", label: "SEO and ranking on Google", tags: ["seo", "content_optimization", "keyword_research"] },
@@ -112,6 +113,8 @@ export const CORE_QUESTIONS: QuizQuestion[] = [
   {
     key: "output_type",
     title: "What type of output do you need most often?",
+    helper: "Select all that apply.",
+    multi: true,
     options: [
       { key: "long_form", label: "Articles, blogs and long-form content", tags: ["long_form_content", "blogging"] },
       { key: "short_form", label: "Short posts, ads, captions and social content", tags: ["short_form_content", "social_media", "ads"] },
@@ -218,6 +221,8 @@ export const CONDITIONAL_QUESTIONS: QuizQuestion[] = [
   {
     key: "seo_goal",
     title: "What is your SEO goal?",
+    helper: "Select all that apply.",
+    multi: true,
     showIf: (a) => a.primary_goal?.includes("seo") ?? false,
     options: [
       { key: "writing", label: "Write SEO articles faster", tags: ["seo_writing"] },
@@ -230,6 +235,8 @@ export const CONDITIONAL_QUESTIONS: QuizQuestion[] = [
   {
     key: "coding_goal",
     title: "What kind of coding help do you need?",
+    helper: "Select all that apply.",
+    multi: true,
     showIf: (a) => a.primary_goal?.includes("coding") ?? false,
     options: [
       { key: "autocomplete", label: "Code autocomplete inside my editor", tags: ["code_autocomplete"] },
@@ -242,6 +249,8 @@ export const CONDITIONAL_QUESTIONS: QuizQuestion[] = [
   {
     key: "build_goal",
     title: "What do you want to build?",
+    helper: "Select all that apply.",
+    multi: true,
     showIf: (a) => a.primary_goal?.includes("app_builder") ?? false,
     options: [
       { key: "landing", label: "Landing page", tags: ["landing_page_builder"] },
@@ -254,6 +263,8 @@ export const CONDITIONAL_QUESTIONS: QuizQuestion[] = [
   {
     key: "video_goal",
     title: "What type of video do you need?",
+    helper: "Select all that apply.",
+    multi: true,
     showIf: (a) => a.primary_goal?.includes("video") ?? false,
     options: [
       { key: "cinematic", label: "AI-generated cinematic/video clips", tags: ["ai_video_generation"] },
@@ -266,6 +277,8 @@ export const CONDITIONAL_QUESTIONS: QuizQuestion[] = [
   {
     key: "automation_goal",
     title: "What kind of automation do you want?",
+    helper: "Select all that apply.",
+    multi: true,
     showIf: (a) => a.primary_goal?.includes("automation") ?? false,
     options: [
       { key: "simple", label: "Simple app-to-app workflows", tags: ["simple_automation"] },

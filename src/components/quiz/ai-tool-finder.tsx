@@ -119,7 +119,7 @@ export function AIToolFinder({ locale }: { locale: string }) {
 
   // quiz phase
   const selected = answers[question.key] ?? [];
-  const canProceed = question.optional || question.multi || selected.length > 0;
+  const canProceed = question.optional || selected.length > 0;
   const progress = Math.round(((clampedIndex + 1) / flow.length) * 100);
 
   return (

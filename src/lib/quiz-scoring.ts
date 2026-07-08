@@ -115,9 +115,25 @@ export function rankTools(answers: Answers): { tool: AITool; score: number }[] {
 
 const GENERAL_GOALS = ["writing", "productivity", "presentations", "sales", "marketing", "not_sure", "customer_support", "research"];
 
+// When several primary goals are selected, the most specific/actionable one
+// drives the result template (tool scoring still uses ALL selected goals' tags).
+const GOAL_SPECIFICITY = [
+  "seo", "coding", "app_builder", "video", "audio", "automation", "image_design",
+  "sales", "research", "presentations", "marketing", "customer_support",
+  "productivity", "writing", "not_sure",
+];
+
+/** Picks the dominant primary goal from one or more selected goals. */
+export function pickPrimaryGoal(goals: string[] | undefined): string {
+  if (!goals || goals.length === 0) return "not_sure";
+  if (goals.length === 1) return goals[0];
+  for (const g of GOAL_SPECIFICITY) if (goals.includes(g)) return g;
+  return goals[0];
+}
+
 /** Picks a premade result template id deterministically from the answers. */
 export function selectTemplateId(answers: Answers): string {
-  const goal = answers.primary_goal?.[0] ?? "not_sure";
+  const goal = pickPrimaryGoal(answers.primary_goal);
   const userType = answers.user_type?.[0] ?? "";
   const lang = answers.language_support?.[0] ?? "";
   const priority = answers.priority?.[0] ?? "";
