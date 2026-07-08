@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { Sparkles } from "lucide-react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { SearchBar } from "@/components/blocks/search-bar";
 import { BackgroundGlow } from "@/components/layout/background-glow";
@@ -67,6 +69,16 @@ export function HeroMotion({
             />
           </motion.div>
         )}
+        <motion.div variants={item} className="mt-6">
+          <Link
+            href={`/${locale}/ai-tool-finder`}
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-transform hover:scale-[1.03] hover:opacity-95 active:scale-[0.98]"
+          >
+            <Sparkles size={18} />
+            Find your AI tools
+          </Link>
+          <p className="mt-2 text-xs text-muted">Take the free 2-minute AI Tool Finder quiz</p>
+        </motion.div>
       </motion.div>
     </section>
   );

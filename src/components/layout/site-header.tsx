@@ -29,7 +29,14 @@ export async function SiteHeader({ locale }: { locale: Locale }) {
     })) ?? [
       { label: "Home", url: `/${locale}`, children: [] },
       { label: "AI Tools", url: `/${locale}/tools?category=ai-tools`, children: [] },
-      { label: "Best Deals", url: `/${locale}/best-deals`, children: [] },
+      {
+        label: "Varel Tools",
+        url: `/${locale}/ai-tool-finder`,
+        children: [
+          { label: "AI Tool Finder", url: `/${locale}/ai-tool-finder` },
+          { label: "Varel Price Checker", url: `/${locale}/best-deals` },
+        ],
+      },
       { label: t.nav_guides, url: `/${locale}/guides`, children: [] },
       { label: t.nav_compare, url: `/${locale}/compare`, children: [] },
       { label: "Blog", url: `/${locale}/editorial`, children: [] },
