@@ -8,6 +8,7 @@ import { getSetting, setSetting } from "@/lib/settings";
 import { requirePermission, fd, fdNum } from "./helpers";
 import { sendEmail } from "@/lib/email";
 import { offerEmail, reportReadyEmail, packageSummary } from "@/lib/llm-scanner/emails";
+import { runDetailedScan } from "@/lib/llm-scanner/report";
 import type { Lang } from "@/lib/llm-scanner/data";
 
 const PAYMENT_KEY = "llm_manual_payment_instructions";
@@ -74,23 +75,43 @@ export async function markPaid(id: string) {
   rev(id);
 }
 
-/** Builds the report draft from the free scan + generates private/public links. */
+/**
+ * Runs the full multi-page detailed scan (homepage + up to 4 pages, optional
+ * competitor + social add-ons) and stores it as the report draft, generating
+ * private/public links. Deterministic — no LLM API.
+ */
 export async function generateReport(id: string) {
   const { userId } = await requirePermission("settings.manage");
   const r = await db.llmScanRequest.findUnique({ where: { id } });
   if (!r) return;
+
+  await db.llmScanRequest.update({ where: { id }, data: { reportStatus: "report_generating" } });
+
+  const lang = (r.preferredLanguage as Lang) ?? "en";
+  const report = await runDetailedScan({
+    websiteUrl: r.websiteUrl,
+    additionalUrls: ((r.additionalUrlsJson as string[] | null) ?? []).filter(Boolean),
+    pageSelectionMethod: (r.pageSelectionMethod as "manual" | "auto_detect") ?? "auto_detect",
+    competitorUrl: r.competitorAddon ? r.competitorUrl : null,
+    socialUrls: r.socialProfileAddon ? ((r.socialProfileUrlsJson as string[] | null) ?? []) : [],
+    lang,
+  });
+
   const token = r.privateReportToken ?? crypto.randomBytes(24).toString("hex");
   const slug = r.publicShareSlug ?? `${r.normalizedDomain.replace(/[^a-z0-9]+/gi, "-")}-${crypto.randomBytes(3).toString("hex")}`.toLowerCase();
+
+  const failed = "error" in report;
   await db.llmScanRequest.update({
     where: { id },
     data: {
       reportStatus: "report_draft_ready",
       privateReportToken: token,
       publicShareSlug: slug,
-      reportJson: (r.reportJson ?? r.freeScanJson) as object,
+      reportJson: (failed ? (r.reportJson ?? r.freeScanJson) : report) as object,
+      ...(failed ? { adminNotes: `${r.adminNotes ?? ""}\n[Detailed scan issue: ${(report as { error: string }).error} — used free-scan fallback]`.trim() } : {}),
     },
   });
-  await audit({ userId, action: "SETTINGS_UPDATE", entityType: "LLM_REPORT", entityId: id, details: { action: "report_generated" } });
+  await audit({ userId, action: "SETTINGS_UPDATE", entityType: "LLM_REPORT", entityId: id, details: { action: "report_generated", pages: failed ? 0 : (report as { pageCount: number }).pageCount } });
   rev(id);
 }
 

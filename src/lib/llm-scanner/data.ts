@@ -147,3 +147,55 @@ export const ISSUE_TEXT: Record<string, { en: string; hr: string }> = {
   noindex: { en: "The homepage is set to noindex and won't be indexed.", hr: "Naslovnica je postavljena na noindex i neće biti indeksirana." },
   no_theme_color: { en: "No theme/brand color signals in the markup.", hr: "Nema signala o brand boji u markupu." },
 };
+
+/** Which report module each issue belongs to. */
+export const ISSUE_MODULE: Record<string, string> = {
+  noindex: "Technical crawlability",
+  no_title: "Metadata",
+  no_meta_description: "Metadata",
+  no_h1: "Content clarity",
+  multiple_h1: "Content clarity",
+  thin_content: "Content clarity",
+  no_schema: "Schema & metadata",
+  no_org_schema: "Entity & ontology",
+  no_faq: "Answer blocks",
+  fluff: "Content clarity",
+  no_robots: "AI crawler policy",
+  ai_bots_blocked: "AI crawler policy",
+  no_sitemap: "Technical crawlability",
+  images_no_alt: "Image & media",
+  no_canonical: "Technical crawlability",
+  weak_answer_blocks: "Answer blocks",
+  no_theme_color: "Visual & brand",
+};
+
+type FixMeta = { fix: { en: string; hr: string }; why: { en: string; hr: string }; impact: "high" | "medium" | "low"; difficulty: "easy" | "medium" | "hard" };
+
+/** Premade fix recommendations per issue id (no AI-generated text). */
+export const FIX_TEMPLATES: Record<string, FixMeta> = {
+  noindex: { fix: { en: "Remove the noindex directive so search/AI crawlers can index this page.", hr: "Ukloni noindex direktivu kako bi search/AI crawleri mogli indeksirati stranicu." }, why: { en: "A noindexed page cannot appear in search or be cited by AI answer engines.", hr: "Noindex stranica ne može se pojaviti u searchu niti biti citirana od AI sustava." }, impact: "high", difficulty: "easy" },
+  no_title: { fix: { en: "Add a unique, descriptive <title> tag (about 40–60 characters).", hr: "Dodaj jedinstven, opisni <title> tag (oko 40–60 znakova)." }, why: { en: "The title is the primary label AI/search systems use to understand the page.", hr: "Title je glavna oznaka koju AI/search sustavi koriste za razumijevanje stranice." }, impact: "high", difficulty: "easy" },
+  no_meta_description: { fix: { en: "Add a meta description (50–160 chars) that summarizes the page.", hr: "Dodaj meta description (50–160 znakova) koji sažima stranicu." }, why: { en: "It provides a ready-made summary snippet for search and AI answers.", hr: "Daje gotov sažetak za search i AI odgovore." }, impact: "medium", difficulty: "easy" },
+  no_h1: { fix: { en: "Add a single clear H1 that states the page's main topic.", hr: "Dodaj jedan jasan H1 koji navodi glavnu temu stranice." }, why: { en: "The H1 signals the primary subject to crawlers and readers.", hr: "H1 signalizira glavnu temu crawlerima i čitateljima." }, impact: "high", difficulty: "easy" },
+  multiple_h1: { fix: { en: "Keep one H1 and demote the rest to H2/H3.", hr: "Zadrži jedan H1, a ostale prebaci u H2/H3." }, why: { en: "Multiple H1s blur what the page is primarily about.", hr: "Više H1 razvodnjava o čemu je stranica." }, impact: "low", difficulty: "easy" },
+  thin_content: { fix: { en: "Expand the page with clear, specific, useful text and examples.", hr: "Proširi stranicu jasnim, konkretnim i korisnim tekstom te primjerima." }, why: { en: "AI/search systems need extractable text to understand and cite a page.", hr: "AI/search sustavi trebaju tekst koji mogu izvući da razumiju i citiraju stranicu." }, impact: "high", difficulty: "medium" },
+  no_schema: { fix: { en: "Add JSON-LD structured data (start with Organization + WebSite).", hr: "Dodaj JSON-LD strukturirane podatke (počni s Organization + WebSite)." }, why: { en: "Schema makes your entity and content machine-readable.", hr: "Schema čini tvoj entitet i sadržaj strojno čitljivim." }, impact: "high", difficulty: "medium" },
+  no_org_schema: { fix: { en: "Add Organization (or LocalBusiness) schema with name, logo, url and sameAs.", hr: "Dodaj Organization (ili LocalBusiness) schemu s name, logo, url i sameAs." }, why: { en: "It defines your business as a clear entity for AI/search systems.", hr: "Definira tvoju tvrtku kao jasan entitet za AI/search sustave." }, impact: "medium", difficulty: "medium" },
+  no_faq: { fix: { en: "Add an FAQ section with real questions and concise answers (+ FAQPage schema).", hr: "Dodaj FAQ sekciju s pravim pitanjima i sažetim odgovorima (+ FAQPage schema)." }, why: { en: "FAQs are highly quotable by answer engines.", hr: "FAQ-ovi su vrlo pogodni za citiranje od answer engine sustava." }, impact: "medium", difficulty: "easy" },
+  fluff: { fix: { en: "Replace generic marketing phrases with concrete, specific statements.", hr: "Zamijeni generičke marketinške fraze konkretnim, specifičnim tvrdnjama." }, why: { en: "Vague copy is hard for AI to summarize accurately.", hr: "Nejasan tekst AI teško točno sažima." }, impact: "low", difficulty: "medium" },
+  no_robots: { fix: { en: "Add a robots.txt that references your sitemap and sets crawler rules.", hr: "Dodaj robots.txt koji referencira sitemap i postavlja pravila za crawlere." }, why: { en: "It gives crawlers clear guidance and discoverability.", hr: "Daje crawlerima jasne upute i lakše otkrivanje." }, impact: "medium", difficulty: "easy" },
+  ai_bots_blocked: { fix: { en: "Allow AI search crawlers (e.g. OAI-SearchBot, PerplexityBot) if you want AI search visibility; separate this from training bots.", hr: "Dopusti AI search crawlere (npr. OAI-SearchBot, PerplexityBot) ako želiš AI search vidljivost; odvoji to od training botova." }, why: { en: "Blocking search crawlers removes you from AI search answers.", hr: "Blokiranje search crawlera uklanja te iz AI search odgovora." }, impact: "high", difficulty: "easy" },
+  no_sitemap: { fix: { en: "Publish a sitemap.xml and reference it in robots.txt.", hr: "Objavi sitemap.xml i referenciraj ga u robots.txt." }, why: { en: "It helps crawlers discover all your important pages.", hr: "Pomaže crawlerima otkriti sve važne stranice." }, impact: "low", difficulty: "easy" },
+  images_no_alt: { fix: { en: "Add descriptive alt text to meaningful images.", hr: "Dodaj opisni alt tekst važnim slikama." }, why: { en: "Crawlers can't interpret image content without alt text.", hr: "Crawleri ne razumiju sadržaj slike bez alt teksta." }, impact: "medium", difficulty: "easy" },
+  no_canonical: { fix: { en: "Add a self-referencing canonical URL.", hr: "Dodaj canonical URL koji pokazuje na samu stranicu." }, why: { en: "It prevents duplicate-content confusion.", hr: "Sprječava zabunu s dupliciranim sadržajem." }, impact: "low", difficulty: "easy" },
+  weak_answer_blocks: { fix: { en: "Add a direct-answer paragraph near the top that states what/who/why in 1–2 sentences.", hr: "Dodaj paragraf s direktnim odgovorom pri vrhu koji u 1–2 rečenice kaže što/tko/zašto." }, why: { en: "Answer engines prefer pages that answer the query directly and early.", hr: "Answer engine sustavi preferiraju stranice koje odmah i izravno odgovaraju na upit." }, impact: "high", difficulty: "medium" },
+  no_theme_color: { fix: { en: "Add a theme-color meta tag and consistent brand colors in CSS.", hr: "Dodaj theme-color meta tag i konzistentne brand boje u CSS." }, why: { en: "Consistent brand signals help visual consistency scoring.", hr: "Konzistentni brand signali pomažu ocjeni vizualne konzistentnosti." }, impact: "low", difficulty: "easy" },
+};
+
+/** Premade site-summary text by overall score band (EN/HR). */
+export const SUMMARY_BAND: { min: number; en: string; hr: string }[] = [
+  { min: 80, en: "This site is largely AI-search ready. Crawlers can access and understand the content well; the fixes below are mostly refinements.", hr: "Ova stranica je uglavnom spremna za AI search. Crawleri dobro pristupaju i razumiju sadržaj; popravci ispod su uglavnom fini detalji." },
+  { min: 60, en: "This site has a solid foundation but several gaps reduce how clearly AI/search systems can read, understand and cite it. The prioritized fixes below will make the biggest difference.", hr: "Stranica ima solidnu osnovu, ali nekoliko praznina smanjuje koliko je AI/search sustavi jasno čitaju, razumiju i citiraju. Prioritetni popravci ispod donose najveću razliku." },
+  { min: 40, en: "This site has meaningful AI-readiness gaps. Content clarity, structured data and answer blocks need work before AI/search systems can reliably interpret and cite it.", hr: "Stranica ima značajne praznine u spremnosti za AI. Jasnoća sadržaja, strukturirani podaci i answer blokovi trebaju rad prije nego što ih AI/search sustavi mogu pouzdano interpretirati i citirati." },
+  { min: 0, en: "This site is currently hard for AI/search systems to read and understand. Start with the critical fixes below — crawlability, a clear entity definition, and extractable, direct content.", hr: "Ovu stranicu AI/search sustavi trenutno teško čitaju i razumiju. Kreni s kritičnim popravcima ispod — crawlability, jasna definicija entiteta te izvučiv, direktan sadržaj." },
+];
