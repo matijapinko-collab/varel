@@ -51,7 +51,7 @@ export default async function LlmReportsPage() {
             {requests.map((r) => (
               <tr key={r.id} className="align-top">
                 <td className="px-3 py-2.5">
-                  <a href={r.websiteUrl} target="_blank" rel="noopener noreferrer" className="font-medium hover:text-primary">{r.normalizedDomain}</a>
+                  <Link href={`/administracija/llm-reports/${r.id}`} className="font-medium hover:text-primary">{r.normalizedDomain}</Link>
                   {r.name && <div className="text-xs text-muted">{r.name}{r.companyName ? ` · ${r.companyName}` : ""}</div>}
                 </td>
                 <td className="px-3 py-2.5 text-muted">{r.email}</td>

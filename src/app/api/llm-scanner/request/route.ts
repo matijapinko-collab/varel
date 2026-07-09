@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { normalizeUrl, domainOf } from "@/lib/llm-scanner/scan";
 import { PRICING } from "@/lib/llm-scanner/data";
+import { sendEmail, adminNotifyEmail } from "@/lib/email";
+import { adminNotificationEmail } from "@/lib/llm-scanner/emails";
 
 export const runtime = "nodejs";
 
@@ -57,23 +59,36 @@ export async function POST(request: Request) {
     addonPrice,
     totalPrice,
     reportStatus: "waiting_admin_review",
-    adminNotes: d.notes
-      ? `Client notes: ${d.notes}\n\n[Admin notification pending — email provider not configured]`
-      : "[Admin notification pending — email provider not configured]",
+    adminNotes: d.notes ? `Client notes: ${d.notes}` : null,
   };
 
+  let requestId: string;
+  let freeScore = 0;
   try {
     if (d.requestId) {
-      const existing = await db.llmScanRequest.findUnique({ where: { id: d.requestId }, select: { id: true } });
+      const existing = await db.llmScanRequest.findUnique({ where: { id: d.requestId }, select: { id: true, freeScanScore: true } });
       if (existing) {
         await db.llmScanRequest.update({ where: { id: d.requestId }, data });
-        return NextResponse.json({ ok: true, requestId: d.requestId, totalPrice });
+        requestId = existing.id;
+        freeScore = existing.freeScanScore ?? 0;
+      } else {
+        const created = await createNew();
+        requestId = created.id;
       }
+    } else {
+      const created = await createNew();
+      requestId = created.id;
     }
-    const created = await db.llmScanRequest.create({
+  } catch (e) {
+    console.error("[llm-scanner] request store failed:", (e as Error).message);
+    return NextResponse.json({ error: "store_failed" }, { status: 500 });
+  }
+
+  async function createNew() {
+    return db.llmScanRequest.create({
       data: {
-        websiteUrl: website,
-        normalizedDomain: domainOf(website),
+        websiteUrl: website!,
+        normalizedDomain: domainOf(website!),
         email: d.email.toLowerCase(),
         permissionConfirmed: true,
         permissionConfirmedAt: new Date(),
@@ -81,9 +96,24 @@ export async function POST(request: Request) {
       },
       select: { id: true },
     });
-    return NextResponse.json({ ok: true, requestId: created.id, totalPrice });
-  } catch (e) {
-    console.error("[llm-scanner] request store failed:", (e as Error).message);
-    return NextResponse.json({ error: "store_failed" }, { status: 500 });
   }
+
+  // Notify admin (best-effort — skipped gracefully when email isn't configured).
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://varel.io";
+  const mail = adminNotificationEmail({
+    domain: domainOf(website),
+    name: d.name ?? "",
+    email: d.email,
+    company: d.companyName ?? "",
+    websiteUrl: website,
+    language: d.language,
+    socialAddon: d.socialProfileAddon,
+    competitorAddon: d.competitorAddon,
+    totalPrice,
+    freeScore,
+    adminUrl: `${site}/administracija/llm-reports/${requestId}`,
+  });
+  void sendEmail({ to: adminNotifyEmail(), subject: mail.subject, text: mail.text, replyTo: d.email });
+
+  return NextResponse.json({ ok: true, requestId, totalPrice });
 }
