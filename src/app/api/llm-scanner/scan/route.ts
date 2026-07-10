@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { runFreeScan, domainOf, normalizeUrl, localizeIssues } from "@/lib/llm-scanner/scan";
+import { runFreeScan, domainOf, normalizeUrl, localizeIssues, type PageFacts } from "@/lib/llm-scanner/scan";
+import { renderPageWithPlaywright } from "@/lib/llm-scanner/renderer";
+import { analyzeRenderDelta } from "@/lib/llm-scanner/render-analysis";
+import { getLlmScannerSettings } from "@/lib/llm-scanner/settings";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -52,6 +55,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: result.reason }, { status: result.reason === "blocked_host" ? 400 : 422 });
   }
 
+  // Simplified rendered-DOM signal (graceful no-op when no browser is available).
+  let render: {
+    available: boolean;
+    status: string;
+    jsDependencyLevel: string;
+    staticWordCount: number;
+    renderedWordCount: number;
+    contentGainPercent: number;
+    summary: string;
+  } | null = null;
+  try {
+    const settings = await getLlmScannerSettings();
+    if (settings.playwrightEnabled && settings.freeScanRenderEnabled) {
+      const rendered = await renderPageWithPlaywright(result.url, { timeoutMs: settings.renderTimeoutFreeMs, mode: "fast", screenshot: false });
+      if (!(rendered.renderStatus === "skipped" && rendered.renderError === "no_browser_available")) {
+        const delta = analyzeRenderDelta(result.facts as PageFacts, rendered, language);
+        render = {
+          available: rendered.renderStatus === "success",
+          status: rendered.renderStatus,
+          jsDependencyLevel: delta.jsDependencyLevel,
+          staticWordCount: delta.staticWordCount,
+          renderedWordCount: delta.renderedWordCount,
+          contentGainPercent: delta.renderedContentGainPercent,
+          summary: delta.summary,
+        };
+      }
+    }
+  } catch {
+    /* render is a bonus signal — never block the free scan */
+  }
+
   let requestId: string | null = null;
   try {
     const created = await db.llmScanRequest.create({
@@ -65,7 +99,7 @@ export async function POST(request: Request) {
         permissionIp: ip,
         freeScanCompleted: true,
         freeScanScore: result.scores.overall,
-        freeScanJson: result as unknown as object,
+        freeScanJson: { ...result, render } as unknown as object,
         reportStatus: "free_scan_completed",
       },
       select: { id: true },
@@ -81,5 +115,6 @@ export async function POST(request: Request) {
     url: result.url,
     scores: result.scores,
     topIssues: localizeIssues(result.topIssues, language),
+    render,
   });
 }

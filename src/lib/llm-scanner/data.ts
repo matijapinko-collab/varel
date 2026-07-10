@@ -199,3 +199,41 @@ export const SUMMARY_BAND: { min: number; en: string; hr: string }[] = [
   { min: 40, en: "This site has meaningful AI-readiness gaps. Content clarity, structured data and answer blocks need work before AI/search systems can reliably interpret and cite it.", hr: "Stranica ima značajne praznine u spremnosti za AI. Jasnoća sadržaja, strukturirani podaci i answer blokovi trebaju rad prije nego što ih AI/search sustavi mogu pouzdano interpretirati i citirati." },
   { min: 0, en: "This site is currently hard for AI/search systems to read and understand. Start with the critical fixes below — crawlability, a clear entity definition, and extractable, direct content.", hr: "Ovu stranicu AI/search sustavi trenutno teško čitaju i razumiju. Kreni s kritičnim popravcima ispod — crawlability, jasna definicija entiteta te izvučiv, direktan sadržaj." },
 ];
+
+/* ---- Rendered-DOM (Playwright) issue text, modules and fixes ---- */
+export const RENDER_ISSUE_TEXT: Record<string, { en: string; hr: string }> = {
+  js_dependency_critical: { en: "Static HTML has very little content; most of the page appears only after JavaScript renders.", hr: "Statički HTML ima vrlo malo sadržaja; većina stranice se pojavljuje tek nakon JavaScript renderiranja." },
+  js_dependency_high: { en: "The page depends heavily on JavaScript for its main content.", hr: "Stranica se snažno oslanja na JavaScript za glavni sadržaj." },
+  render_blocked: { en: "The page could not be rendered by a headless browser (possible bot protection or timeout).", hr: "Stranicu nije bilo moguće renderirati headless preglednikom (moguća bot zaštita ili timeout)." },
+  poor_contrast: { en: "Some important text or CTA elements have weak color contrast.", hr: "Neki važni tekst ili CTA elementi imaju slab kontrast boja." },
+};
+
+Object.assign(ISSUE_MODULE, {
+  js_dependency_critical: "Static HTML vs Rendered DOM",
+  js_dependency_high: "Static HTML vs Rendered DOM",
+  render_blocked: "Rendered DOM",
+  poor_contrast: "Visual & brand",
+});
+
+Object.assign(FIX_TEMPLATES, {
+  js_dependency_critical: {
+    fix: { en: "Move the H1, direct-answer block, primary service/product descriptions, FAQ and important internal links into server-rendered or statically generated HTML.", hr: "Premjesti H1, direktan odgovor, glavne opise usluga/proizvoda, FAQ i važne interne linkove u server-rendered ili statički generiran HTML." },
+    why: { en: "Some AI/search crawlers may see a much weaker version of the page if important content is not in static HTML.", hr: "Neki AI/search crawleri mogu vidjeti puno slabiju verziju stranice ako važan sadržaj nije u statičkom HTML-u." },
+    impact: "high", difficulty: "hard",
+  },
+  js_dependency_high: {
+    fix: { en: "Ensure the primary content, headings and answer blocks are present in server-rendered HTML, not only after client JavaScript.", hr: "Osiguraj da su glavni sadržaj, naslovi i answer blokovi prisutni u server-rendered HTML-u, a ne tek nakon client JavaScripta." },
+    why: { en: "Server-rendered content is the most reliable for crawler and AI/search extraction.", hr: "Server-rendered sadržaj je najpouzdaniji za crawler i AI/search izvlačenje." },
+    impact: "medium", difficulty: "medium",
+  },
+  render_blocked: {
+    fix: { en: "Review bot protection, firewall rules and robots.txt so legitimate crawlers can access public content.", hr: "Pregledaj bot zaštitu, firewall pravila i robots.txt kako bi legitimni crawleri mogli pristupiti javnom sadržaju." },
+    why: { en: "If browser-based crawlers cannot render the page, AI/search systems may struggle to extract full content.", hr: "Ako browser-based crawleri ne mogu renderirati stranicu, AI/search sustavi mogu imati poteškoća s izvlačenjem sadržaja." },
+    impact: "high", difficulty: "medium",
+  },
+  poor_contrast: {
+    fix: { en: "Increase contrast between text and background, especially for buttons, links and hero sections.", hr: "Povećaj kontrast između teksta i pozadine, posebno za gumbe, linkove i hero sekcije." },
+    why: { en: "Poor contrast reduces readability and weakens the visual hierarchy of the page.", hr: "Slab kontrast smanjuje čitljivost i slabi vizualnu hijerarhiju stranice." },
+    impact: "medium", difficulty: "easy",
+  },
+});

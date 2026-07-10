@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { COPY, type Lang } from "@/lib/llm-scanner/data";
 import { PrintButton } from "@/components/llm-scanner/print-button";
-import type { DetailedReport, FixTask } from "@/lib/llm-scanner/report";
-import type { PageReport, PageScores } from "@/lib/llm-scanner/scan";
+import type { DetailedReport, FixTask, ReportPage } from "@/lib/llm-scanner/report";
+import type { PageScores } from "@/lib/llm-scanner/scan";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -76,16 +76,54 @@ export default async function PrivateReportPage(props: PageProps<"/[locale]/repo
             </section>
           )}
 
+          {/* Static HTML vs Rendered DOM */}
+          {report.renderAvailable && report.pages.some((p) => p.renderDelta) && (
+            <section className="mt-10">
+              <h2 className="text-xl font-bold">Static HTML vs Rendered DOM</h2>
+              <p className="mt-2 text-sm text-muted">
+                {lang === "hr"
+                  ? "Usporedba sadržaja koji je dostupan u sirovom HTML-u naspram onoga što se pojavljuje nakon što preglednik izvrši JavaScript."
+                  : "A comparison of the content available in raw HTML versus what appears after a browser runs JavaScript."}
+              </p>
+              <div className="mt-3 space-y-3">
+                {report.pages.filter((p) => p.renderDelta).map((p) => {
+                  const d = p.renderDelta!;
+                  return (
+                    <div key={p.url} className="rounded-card border border-border bg-card p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="min-w-0 truncate text-sm font-medium">{p.url}</div>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize text-white ${d.jsDependencyLevel === "critical" ? "bg-red-500" : d.jsDependencyLevel === "high" ? "bg-orange-500" : d.jsDependencyLevel === "medium" ? "bg-amber-500" : "bg-green-500"}`}>
+                          JS: {d.jsDependencyLevel}
+                        </span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                        <Fact k={lang === "hr" ? "Statičke riječi" : "Static words"} v={d.staticWordCount} />
+                        <Fact k={lang === "hr" ? "Renderirane riječi" : "Rendered words"} v={d.renderedWordCount} />
+                        <Fact k={lang === "hr" ? "Dobitak" : "Gain"} v={`${d.renderedContentGainPercent}%`} />
+                        <Fact k={lang === "hr" ? "Linkovi (S→R)" : "Links (S→R)"} v={`${d.staticLinkCount}→${d.renderedLinkCount}`} />
+                      </div>
+                      <p className="mt-2 text-sm text-muted">{d.summary}</p>
+                      {p.rendered?.screenshotUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.rendered.screenshotUrl} alt="" loading="lazy" className="mt-3 w-full rounded-lg border border-border" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           {/* Per-page analysis */}
           <section className="mt-10">
             <h2 className="text-xl font-bold">{lang === "hr" ? "Analiza po stranici" : "Per-page analysis"}</h2>
             <div className="mt-3 space-y-4">
-              {report.pages.map((p: PageReport) => (
+              {report.pages.map((p: ReportPage) => (
                 <div key={p.url} className="rounded-card border border-border bg-card p-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{p.url}</div>
-                      <div className="text-xs uppercase text-muted">{p.pageType}</div>
+                      <div className="text-xs uppercase text-muted">{p.pageType}{p.renderDelta ? ` · JS ${p.renderDelta.jsDependencyLevel}` : ""}</div>
                     </div>
                     <div className={`text-2xl font-bold ${scoreColor(p.scores.overall)}`}>{p.scores.overall}</div>
                   </div>

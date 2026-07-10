@@ -23,7 +23,9 @@ export default async function LlmReportsPage() {
 
   return (
     <div>
-      <PageHeader title="LLM Visibility Reports" />
+      <PageHeader title="LLM Visibility Reports">
+        <Link href="/administracija/settings/llm-scanner" className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:border-primary">Scanner settings</Link>
+      </PageHeader>
       <p className="-mt-2 mb-4 text-sm text-muted">
         Leads and detailed-report requests from the LLM Visibility Scanner.
         {pending > 0 && <span className="ml-1 font-medium text-amber-600">{pending} waiting for review.</span>}

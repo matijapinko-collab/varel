@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
 import { getSetting, setSetting } from "@/lib/settings";
-import { requirePermission, fd, fdNum } from "./helpers";
+import { requirePermission, fd, fdNum, fdBool } from "./helpers";
+import { LLM_SCANNER_SETTINGS_KEY, DEFAULT_SCANNER_SETTINGS, type LlmScannerSettings } from "@/lib/llm-scanner/settings";
 import { sendEmail } from "@/lib/email";
 import { offerEmail, reportReadyEmail, packageSummary } from "@/lib/llm-scanner/emails";
 import { runDetailedScan } from "@/lib/llm-scanner/report";
@@ -95,6 +96,7 @@ export async function generateReport(id: string) {
     competitorUrl: r.competitorAddon ? r.competitorUrl : null,
     socialUrls: r.socialProfileAddon ? ((r.socialProfileUrlsJson as string[] | null) ?? []) : [],
     lang,
+    requestId: r.id,
   });
 
   const token = r.privateReportToken ?? crypto.randomBytes(24).toString("hex");
@@ -149,6 +151,26 @@ export async function rejectRequest(id: string) {
   await db.llmScanRequest.update({ where: { id }, data: { reportStatus: "rejected" } });
   await audit({ userId, action: "SETTINGS_UPDATE", entityType: "LLM_REPORT", entityId: id, details: { action: "rejected" } });
   rev(id);
+}
+
+/** Save the admin LLM-scanner / rendering settings. */
+export async function saveLlmScannerSettings(form: FormData) {
+  const { userId } = await requirePermission("settings.manage");
+  const settings: LlmScannerSettings = {
+    playwrightEnabled: fdBool(form, "playwrightEnabled"),
+    screenshotsEnabled: fdBool(form, "screenshotsEnabled"),
+    visualAnalysisEnabled: fdBool(form, "visualAnalysisEnabled"),
+    freeScanRenderEnabled: fdBool(form, "freeScanRenderEnabled"),
+    paidScanRenderEnabled: fdBool(form, "paidScanRenderEnabled"),
+    renderTimeoutFreeMs: fdNum(form, "renderTimeoutFreeMs") ?? DEFAULT_SCANNER_SETTINGS.renderTimeoutFreeMs,
+    renderTimeoutPaidMs: fdNum(form, "renderTimeoutPaidMs") ?? DEFAULT_SCANNER_SETTINGS.renderTimeoutPaidMs,
+    maxConcurrentRenders: fdNum(form, "maxConcurrentRenders") ?? DEFAULT_SCANNER_SETTINGS.maxConcurrentRenders,
+    screenshotStorageProvider: (fd(form, "screenshotStorageProvider") || "object_storage") as LlmScannerSettings["screenshotStorageProvider"],
+    scannerUserAgent: fd(form, "scannerUserAgent") || DEFAULT_SCANNER_SETTINGS.scannerUserAgent,
+  };
+  await setSetting(LLM_SCANNER_SETTINGS_KEY, settings, "LLM scanner / rendering settings");
+  await audit({ userId, action: "SETTINGS_UPDATE", entityType: "SETTINGS", details: { section: "llm_scanner" } });
+  revalidatePath("/administracija/settings/llm-scanner");
 }
 
 export async function archiveRequest(id: string) {

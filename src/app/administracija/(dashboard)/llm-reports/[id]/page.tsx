@@ -25,6 +25,12 @@ type ScanJson = {
   topIssues?: { id: string; priority: string; text: string }[];
 };
 
+type RenderPageLite = {
+  url: string;
+  rendered?: { renderStatus?: string; renderDurationMs?: number; screenshotUrl?: string };
+  renderDelta?: { jsDependencyLevel?: string; staticWordCount?: number; renderedWordCount?: number; renderedContentGainPercent?: number };
+};
+
 export default async function LlmReportDetailPage(props: PageProps<"/administracija/llm-reports/[id]">) {
   const { id } = await props.params;
   const r = await db.llmScanRequest.findUnique({ where: { id } });
@@ -113,6 +119,36 @@ export default async function LlmReportDetailPage(props: PageProps<"/administrac
           )}
         </FormSection>
       )}
+
+      {/* Rendered DOM analysis (detailed report) */}
+      {(() => {
+        const rep = r.reportJson as { pages?: RenderPageLite[]; renderAvailable?: boolean } | null;
+        if (!rep?.pages?.some((p) => p.rendered)) return null;
+        return (
+          <FormSection title={`Rendered DOM analysis ${rep.renderAvailable ? "" : "(browser unavailable — static only)"}`}>
+            <div className="space-y-2">
+              {rep.pages.filter((p) => p.rendered).map((p, i) => (
+                <div key={i} className="rounded-lg border border-border p-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="min-w-0 truncate font-medium">{p.url}</span>
+                    <span className="flex items-center gap-2 text-xs">
+                      <span className={`rounded-full px-2 py-0.5 font-semibold ${p.rendered?.renderStatus === "success" ? "bg-green-500/10 text-green-600" : "bg-amber-500/10 text-amber-600"}`}>{p.rendered?.renderStatus}</span>
+                      {p.rendered?.renderDurationMs != null && <span className="text-muted">{p.rendered.renderDurationMs} ms</span>}
+                      {p.renderDelta && <span className="text-muted">JS: {p.renderDelta.jsDependencyLevel}</span>}
+                    </span>
+                  </div>
+                  {p.renderDelta && <div className="mt-1 text-xs text-muted">static {p.renderDelta.staticWordCount} → rendered {p.renderDelta.renderedWordCount} words ({p.renderDelta.renderedContentGainPercent}% gain)</div>}
+                  {p.rendered?.screenshotUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.rendered.screenshotUrl} alt="" className="mt-2 max-h-40 rounded border border-border" />
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted">Use <strong>Generate Report</strong> again to re-render pages and re-capture screenshots.</p>
+          </FormSection>
+        );
+      })()}
 
       {/* Pricing + payment settings */}
       <form action={saveReportSettings.bind(null, r.id)}>

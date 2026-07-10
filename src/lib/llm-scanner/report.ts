@@ -13,7 +13,18 @@ import {
   type PageScores,
   type Priority,
 } from "./scan";
-import { ISSUE_TEXT, ISSUE_MODULE, FIX_TEMPLATES, SUMMARY_BAND, type Lang } from "./data";
+import { ISSUE_TEXT, ISSUE_MODULE, FIX_TEMPLATES, RENDER_ISSUE_TEXT, SUMMARY_BAND, type Lang } from "./data";
+import { renderPageWithPlaywright, type RenderedPageAnalysis } from "./renderer";
+import { analyzeRenderDelta, computeExtractability, applyExtractability, contrastIssues, type RenderDeltaAnalysis, type ExtractabilityBreakdown } from "./render-analysis";
+import { getLlmScannerSettings } from "./settings";
+import { withConcurrency } from "./jobs/scanQueue";
+
+export type ReportPage = PageReport & {
+  rendered?: RenderedPageAnalysis;
+  renderDelta?: RenderDeltaAnalysis;
+  extractability?: ExtractabilityBreakdown;
+  renderIssues?: { id: string; priority: Priority }[];
+};
 
 export type FixTask = {
   id: string;
@@ -47,10 +58,11 @@ export type DetailedReport = {
   siteScores: PageScores;
   priority: Priority;
   summaryText: string;
-  pages: PageReport[];
+  pages: ReportPage[];
   fixQueue: FixTask[];
   competitor?: CompetitorComparison;
   socialProfiles?: SocialProfileCheck[];
+  renderAvailable: boolean;
 };
 
 export type DetailedScanInput = {
@@ -60,6 +72,7 @@ export type DetailedScanInput = {
   competitorUrl?: string | null;
   socialUrls?: string[];
   lang: Lang;
+  requestId?: string;
 };
 
 const SCORE_LABEL: Record<keyof PageScores, string> = {
@@ -114,15 +127,66 @@ export async function runDetailedScan(input: DetailedScanInput): Promise<Detaile
     input.socialUrls && input.socialUrls.length ? Promise.all(input.socialUrls.slice(0, 12).map(checkSocial)) : Promise.resolve(undefined),
   ]);
 
-  const pages = [homeReport, ...additionalReports.filter((p): p is PageReport => p !== null)];
+  const staticPages = [homeReport, ...additionalReports.filter((p): p is PageReport => p !== null)];
+  const lang = input.lang;
+
+  // ---- Rendered-DOM pass (Playwright). Graceful: skips when no browser. ----
+  const settings = await getLlmScannerSettings();
+  let renderAvailable = false;
+  const pages: ReportPage[] = await (async () => {
+    if (!settings.playwrightEnabled || !settings.paidScanRenderEnabled) return staticPages;
+    return withConcurrency(staticPages, settings.maxConcurrentRenders, async (page, i): Promise<ReportPage> => {
+      const rendered = await renderPageWithPlaywright(page.url, {
+        timeoutMs: settings.renderTimeoutPaidMs,
+        mode: "full",
+        screenshot: settings.screenshotsEnabled,
+        requestId: input.requestId,
+        pageKey: `p${i}`,
+      });
+      if (rendered.renderStatus === "skipped" && rendered.renderError === "no_browser_available") {
+        return { ...page }; // no browser — static only, no render section
+      }
+      renderAvailable = true;
+      const delta = analyzeRenderDelta(page.facts, rendered, lang);
+      const breakdown = computeExtractability(page.scores.contentExtractability, page.facts, rendered, rendered.renderStatus === "success" ? delta : null);
+      const renderIssues: { id: string; priority: Priority }[] = [];
+      if (rendered.renderStatus === "success") {
+        if (delta.jsDependencyLevel === "critical") renderIssues.push({ id: "js_dependency_critical", priority: "critical" });
+        else if (delta.jsDependencyLevel === "high") renderIssues.push({ id: "js_dependency_high", priority: "high" });
+        if (contrastIssues(rendered)) renderIssues.push({ id: "poor_contrast", priority: "medium" });
+      } else if (rendered.renderStatus === "blocked" || rendered.renderStatus === "failed" || rendered.renderStatus === "timeout") {
+        renderIssues.push({ id: "render_blocked", priority: "medium" });
+      }
+      // Blend rendered signals into the page's headline scores.
+      const mergedScores = applyExtractability(
+        rendered.visualStyles ? { ...page.scores, visualConsistency: Math.round((page.scores.visualConsistency + rendered.visualStyles.visualConsistencyScore) / 2) } : page.scores,
+        breakdown
+      );
+      return { ...page, scores: mergedScores, rendered, renderDelta: delta, extractability: breakdown, renderIssues };
+    });
+  })();
 
   // Site-level scores = averages across analyzed pages.
   const siteScores = averageScores(pages.map((p) => p.scores));
 
-  // Fix queue.
-  const lang = input.lang;
+  // Fix queue (static issues + render-derived issues).
   const fixQueue: FixTask[] = [];
+  const pushIssue = (page: ReportPage, issue: { id: string; priority: Priority }, isRender: boolean) => {
+    const meta = FIX_TEMPLATES[issue.id];
+    fixQueue.push({
+      id: `${issue.id}::${page.url}`,
+      priority: issue.priority,
+      pageUrl: page.url,
+      module: ISSUE_MODULE[issue.id] ?? "General",
+      problem: (isRender ? RENDER_ISSUE_TEXT[issue.id]?.[lang] : ISSUE_TEXT[issue.id]?.[lang]) ?? issue.id,
+      whyItMatters: meta?.why[lang] ?? "",
+      recommendedFix: meta?.fix[lang] ?? "",
+      estimatedImpact: meta?.impact ?? "medium",
+      difficulty: meta?.difficulty ?? "medium",
+    });
+  };
   for (const page of pages) {
+    for (const issue of page.renderIssues ?? []) pushIssue(page, issue, true);
     for (const issue of page.issues) {
       const meta = FIX_TEMPLATES[issue.id];
       fixQueue.push({
@@ -158,6 +222,7 @@ export async function runDetailedScan(input: DetailedScanInput): Promise<Detaile
     priority,
     summaryText: band[lang],
     pages,
+    renderAvailable,
     fixQueue: cappedQueue,
     competitor: competitor && "domain" in competitor ? competitor : undefined,
     socialProfiles: socialProfiles?.filter(Boolean),

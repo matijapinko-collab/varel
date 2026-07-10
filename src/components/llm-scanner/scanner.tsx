@@ -13,7 +13,8 @@ type Scores = {
   visualConsistency: number;
 };
 type Issue = { id: string; priority: "critical" | "high" | "medium" | "low"; text: string };
-type ScanResponse = { requestId: string | null; domain: string; url: string; scores: Scores; topIssues: Issue[] };
+type RenderSignal = { available: boolean; status: string; jsDependencyLevel: string; staticWordCount: number; renderedWordCount: number; contentGainPercent: number; summary: string } | null;
+type ScanResponse = { requestId: string | null; domain: string; url: string; scores: Scores; topIssues: Issue[]; render?: RenderSignal };
 
 const ERR: Record<string, { en: string; hr: string }> = {
   invalid_url: { en: "That doesn't look like a valid website URL.", hr: "To ne izgleda kao ispravan URL web stranice." },
@@ -134,6 +135,18 @@ function ScanResult({ lang, result, reportLang, email }: { lang: Lang; result: S
           ))}
         </div>
       </div>
+
+      {result.render && result.render.available && (
+        <div className="rounded-card border border-border bg-card p-6">
+          <h3 className="text-lg font-bold">Static HTML vs Rendered DOM</h3>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+            <span className="rounded-lg border border-border bg-background px-3 py-1.5">{lang === "hr" ? "Statičke riječi" : "Static words"}: <b>{result.render.staticWordCount}</b></span>
+            <span className="rounded-lg border border-border bg-background px-3 py-1.5">{lang === "hr" ? "Renderirane riječi" : "Rendered words"}: <b>{result.render.renderedWordCount}</b></span>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize text-white ${result.render.jsDependencyLevel === "critical" ? "bg-red-500" : result.render.jsDependencyLevel === "high" ? "bg-orange-500" : result.render.jsDependencyLevel === "medium" ? "bg-amber-500" : "bg-green-500"}`}>JS dependency: {result.render.jsDependencyLevel}</span>
+          </div>
+          <p className="mt-3 text-sm text-muted">{result.render.summary}</p>
+        </div>
+      )}
 
       <div className="rounded-card border border-border bg-card p-6">
         <h3 className="text-lg font-bold">{t.topIssues}</h3>

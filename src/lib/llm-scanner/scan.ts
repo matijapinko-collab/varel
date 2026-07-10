@@ -26,6 +26,7 @@ export type PageFacts = {
   metaDescription: string | null;
   h1: string | null;
   h1Count: number;
+  headingCount: number;
   wordCount: number;
   schemaTypes: string[];
   imagesTotal: number;
@@ -369,7 +370,7 @@ export function analyzeDocument(url: string, html: string, status: number, robot
     fetchedAt: new Date().toISOString(),
     scores: { overall, technicalCrawlability, contentExtractability, schemaReadiness, crawlerPolicy, visualConsistency },
     facts: {
-      statusCode: status, title, metaDescription, h1, h1Count: h1s.length, wordCount,
+      statusCode: status, title, metaDescription, h1, h1Count: h1s.length, headingCount, wordCount,
       schemaTypes: schemaArr, imagesTotal, imagesNoAlt, faqPresent, canonical, noindex,
       hasRobots: robots.hasRobots, sitemapReferenced: robots.sitemapReferenced, blockedAiBots, fluffHits,
       pageType, internalLinksCount: internalLinks.size, externalLinksCount,
