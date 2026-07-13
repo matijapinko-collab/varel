@@ -11,6 +11,9 @@ import { ProsConsBox } from "@/components/blocks/pros-cons-box";
 import { ComparisonBox, type ComparisonTool } from "@/components/blocks/comparison-box";
 import { VerdictBox } from "@/components/blocks/verdict-box";
 import { buildSeoMetadata, JsonLd, faqJsonLd, articleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
+import { getContentSettings, resolveArticleAuthor, localizeAuthor } from "@/lib/authors";
+import { AuthorBox } from "@/components/content/author-box";
+import { CompactAuthorMeta } from "@/components/content/compact-author-meta";
 
 function toStrings(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
@@ -33,6 +36,7 @@ async function getGuide(locale: Locale, slug: string) {
       article: {
         include: {
           author: true,
+          authorProfile: true,
           reviewer: true,
           featuredImage: true,
           comparisonToolA: toolInclude,
@@ -104,6 +108,12 @@ export default async function GuidePage(props: PageProps<"/[locale]/guides/[slug
   const cons = toStrings(guide.consJson);
   const lastUpdated = a.lastReviewedAt ?? guide.updatedAt;
 
+  const [contentSettings, displayAuthor] = await Promise.all([
+    getContentSettings(),
+    resolveArticleAuthor(a.authorProfile),
+  ]);
+  const la = displayAuthor ? localizeAuthor(displayAuthor, locale) : null;
+
   // Public category label
   const category = a.primaryCategory;
   const categoryTr = category?.translations[0];
@@ -135,7 +145,11 @@ export default async function GuidePage(props: PageProps<"/[locale]/guides/[slug
         data={articleJsonLd({
           title: guide.title,
           description: guide.excerpt,
-          authorName: a.author?.name,
+          authorName: la?.displayName ?? a.author?.name,
+          authorUrl: la?.url,
+          authorImage: la?.photoUrl,
+          authorSameAs: la?.socials.map((s) => s.url),
+          image: a.featuredImage?.url,
           datePublished: a.publishedAt,
           dateModified: lastUpdated,
           url: `${site}/${locale}/guides/${guide.slug}`,
@@ -152,18 +166,22 @@ export default async function GuidePage(props: PageProps<"/[locale]/guides/[slug
         )}
       </div>
       <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{guide.title}</h1>
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
-        {a.author && (
-          <span>
-            {t.written_by} <span className="font-medium text-foreground">{a.author.name}</span>
-          </span>
-        )}
-        {a.reviewer && a.reviewer.id !== a.author?.id && (
-          <span>· Reviewed by <span className="font-medium text-foreground">{a.reviewer.name}</span></span>
-        )}
-        <span>· Updated {lastUpdated.toLocaleDateString(locale)}</span>
-        <span>· {wordsToMinutes(guide.body)} {t.reading_time}</span>
-      </div>
+      {displayAuthor && contentSettings.compactAuthorUnderTitle ? (
+        <CompactAuthorMeta
+          author={displayAuthor}
+          locale={locale}
+          updated={lastUpdated}
+          lastTested={a.lastTestedAt}
+          pricingChecked={a.pricingCheckedAt}
+          reviewerName={a.reviewer && a.reviewer.id !== a.author?.id ? a.reviewer.name : null}
+          extra={<span>· {wordsToMinutes(guide.body)} {t.reading_time}</span>}
+        />
+      ) : (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+          <span>Updated {lastUpdated.toLocaleDateString(locale)}</span>
+          <span>· {wordsToMinutes(guide.body)} {t.reading_time}</span>
+        </div>
+      )}
 
       {/* Short answer summary box (near top for readers + AI engines) */}
       {(guide.aiSummary || guide.directAnswer) && (
@@ -215,6 +233,16 @@ export default async function GuidePage(props: PageProps<"/[locale]/guides/[slug
           bestFor={guide.varelVerdictBestFor}
           skipIf={guide.varelVerdictSkipIf}
           rating={guide.varelVerdictRating}
+        />
+      )}
+
+      {displayAuthor && contentSettings.authorBoxOnArticles && (
+        <AuthorBox
+          author={displayAuthor}
+          locale={locale}
+          lastUpdated={lastUpdated}
+          lastTested={a.lastTestedAt}
+          pricingChecked={a.pricingCheckedAt}
         />
       )}
 

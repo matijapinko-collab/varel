@@ -85,18 +85,35 @@ export function articleJsonLd(opts: {
   title: string;
   description?: string | null;
   authorName?: string | null;
+  authorUrl?: string | null;
+  authorImage?: string | null;
+  authorSameAs?: string[];
   datePublished?: Date | null;
   dateModified?: Date | null;
+  image?: string | null;
   url: string;
 }) {
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? "http://localhost:3000";
   return {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: opts.title,
     description: opts.description ?? undefined,
+    image: opts.image ?? undefined,
     author: opts.authorName
-      ? { "@type": "Person", name: opts.authorName }
+      ? {
+          "@type": "Person",
+          name: opts.authorName,
+          url: opts.authorUrl ?? undefined,
+          image: opts.authorImage ?? undefined,
+          sameAs: opts.authorSameAs && opts.authorSameAs.length ? opts.authorSameAs : [],
+        }
       : undefined,
+    publisher: {
+      "@type": "Organization",
+      name: "Varel",
+      url: site,
+    },
     datePublished: opts.datePublished?.toISOString(),
     dateModified: opts.dateModified?.toISOString(),
     mainEntityOfPage: opts.url,

@@ -35,6 +35,8 @@ export type PostSaveInput = {
   // Category
   primaryCategoryId: string | null;
   secondaryCategoryIds: string[];
+  // Public localized author (byline)
+  authorProfileId: string | null;
   // SEO
   seo: {
     metaTitle: string;
@@ -62,6 +64,8 @@ export type PostSaveInput = {
     sources: SourceRef[];
     reviewerId: string | null;
     lastReviewedAt: string | null;
+    lastTestedAt: string | null;
+    pricingCheckedAt: string | null;
   };
   // Pros / Cons
   prosCons: { enabled: boolean; heading: string; intro: string; pros: string[]; cons: string[] };
@@ -176,8 +180,11 @@ export async function savePost(
       comparisonToolAId: input.comparison.enabled ? input.comparison.toolAId : null,
       comparisonToolBId: input.comparison.enabled ? input.comparison.toolBId : null,
       varelVerdictEnabled: input.verdict.enabled,
+      authorProfileId: input.authorProfileId,
       reviewerId: input.llm.reviewerId,
       lastReviewedAt: input.llm.lastReviewedAt ? new Date(input.llm.lastReviewedAt) : null,
+      lastTestedAt: input.llm.lastTestedAt ? new Date(input.llm.lastTestedAt) : null,
+      pricingCheckedAt: input.llm.pricingCheckedAt ? new Date(input.llm.pricingCheckedAt) : null,
     },
   });
 

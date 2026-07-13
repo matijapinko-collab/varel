@@ -25,10 +25,12 @@ import {
   BarChart3,
   Mail,
   Users,
+  UserCircle,
   ShieldCheck,
   PackageOpen,
   Settings,
   Palette,
+  FileEdit,
   LogOut,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -51,6 +53,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
       { href: "/administracija/news", label: "News", icon: Newspaper },
       { href: "/administracija/prompts", label: "Prompts", icon: MessageSquareText },
       { href: "/administracija/comparisons", label: "Comparisons", icon: GitCompareArrows },
+      { href: "/administracija/authors", label: "Authors", icon: UserCircle },
     ],
   },
   {
@@ -98,6 +101,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
     label: "Settings",
     items: [
       { href: "/administracija/settings", label: "General", icon: Settings },
+      { href: "/administracija/settings/content", label: "Content & Authors", icon: FileEdit },
       { href: "/administracija/branding", label: "Branding & Theme", icon: Palette },
       { href: "/administracija/languages", label: "Languages", icon: Languages },
       { href: "/administracija/translations", label: "Translations", icon: Repeat2 },

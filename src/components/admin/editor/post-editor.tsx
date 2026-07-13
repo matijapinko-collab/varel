@@ -38,6 +38,7 @@ export type PostEditorData = {
   publishedAt: string | null;
   updatedAt: string;
   author: string;
+  authorProfileId: string | null;
   primaryCategoryId: string | null;
   secondaryCategoryIds: StrList;
   seo: {
@@ -65,6 +66,8 @@ export type PostEditorData = {
     sources: Source[];
     reviewerId: string | null;
     lastReviewedAt: string | null;
+    lastTestedAt: string | null;
+    pricingCheckedAt: string | null;
   };
   prosCons: { enabled: boolean; heading: string; intro: string; pros: StrList; cons: StrList };
   comparison: {
@@ -83,6 +86,7 @@ export type EditorOptions = {
   categories: { id: string; name: string }[];
   tools: { id: string; name: string }[];
   reviewers: { id: string; name: string }[];
+  authors: { id: string; nameEn: string; nameHr: string; hasPhoto: boolean; hasBio: boolean }[];
   media: { id: string; url: string; name: string }[];
   siteUrl: string;
 };
@@ -175,6 +179,7 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
       featuredImageAlt: f.featuredImageAlt,
       primaryCategoryId: f.primaryCategoryId,
       secondaryCategoryIds: f.secondaryCategoryIds,
+      authorProfileId: f.authorProfileId,
       seo: f.seo,
       llm: f.llm,
       prosCons: f.prosCons,
@@ -488,15 +493,47 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
             <div className="mt-2"><Field label="Alt text (required)"><input className={`editor-input ${f.featuredImageAlt ? "" : "border-amber-400"}`} value={f.featuredImageAlt} onChange={(e) => up("featuredImageAlt", e.target.value)} /></Field></div>
           </Box>
 
-          {/* Reviewer + updated */}
-          <Box title="Author & review">
-            <Field label="Reviewer / author (required)">
+          {/* Public author (localized byline) */}
+          <Box title="Author">
+            {(() => {
+              const selected = options.authors.find((x) => x.id === f.authorProfileId) ?? null;
+              return (
+                <>
+                  <Field label="Public author (shown on the article)">
+                    <select value={f.authorProfileId ?? ""} onChange={(e) => up("authorProfileId", e.target.value || null)} className="editor-input">
+                      <option value="">Default author</option>
+                      {options.authors.map((x) => <option key={x.id} value={x.id}>{x.nameEn} / {x.nameHr}</option>)}
+                    </select>
+                  </Field>
+                  {!f.authorProfileId && (
+                    <p className="mt-1 text-xs text-muted">No author selected. The default author will be used.</p>
+                  )}
+                  {selected && (
+                    <div className="mt-2 rounded-lg border border-border bg-background-secondary p-2 text-xs">
+                      <div><span className="text-muted">EN:</span> {selected.nameEn} · <span className="text-muted">HR:</span> {selected.nameHr}</div>
+                      {!selected.hasPhoto && <div className="mt-1 text-amber-600">⚠ Author photo is missing.</div>}
+                      {!selected.hasBio && <div className="text-amber-600">⚠ Author short bio is missing.</div>}
+                    </div>
+                  )}
+                  <a href={f.authorProfileId ? `/administracija/authors/${f.authorProfileId}/edit` : "/administracija/authors"} target="_blank" rel="noopener" className="mt-2 inline-block text-xs text-primary hover:underline">Manage authors →</a>
+                </>
+              );
+            })()}
+          </Box>
+
+          {/* Reviewer + dates */}
+          <Box title="Review & freshness">
+            <Field label="Reviewer (required)">
               <select value={f.llm.reviewerId ?? ""} onChange={(e) => up("llm", { ...f.llm, reviewerId: e.target.value || null })} className={`editor-input ${f.llm.reviewerId ? "" : "border-amber-400"}`}>
                 <option value="">— select —</option>
                 {options.reviewers.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
             </Field>
             <div className="mt-2"><Field label="Last updated (required)"><input type="date" className={`editor-input ${f.llm.lastReviewedAt ? "" : "border-amber-400"}`} value={f.llm.lastReviewedAt ?? ""} onChange={(e) => up("llm", { ...f.llm, lastReviewedAt: e.target.value || null })} /></Field></div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Field label="Last tested (reviews)"><input type="date" className="editor-input" value={f.llm.lastTestedAt ?? ""} onChange={(e) => up("llm", { ...f.llm, lastTestedAt: e.target.value || null })} /></Field>
+              <Field label="Pricing checked (reviews)"><input type="date" className="editor-input" value={f.llm.pricingCheckedAt ?? ""} onChange={(e) => up("llm", { ...f.llm, pricingCheckedAt: e.target.value || null })} /></Field>
+            </div>
           </Box>
 
           <Box title="Completion">

@@ -14,6 +14,8 @@ import { ToolOffers } from "@/components/blocks/tool-offers";
 import { getToolOffers } from "@/lib/deals-data";
 import { productOfferJsonLd } from "@/lib/deals-schema";
 import { buildSeoMetadata, JsonLd, faqJsonLd } from "@/lib/seo";
+import { getDefaultAuthor, getContentSettings } from "@/lib/authors";
+import { AuthorBox } from "@/components/content/author-box";
 
 async function getTool(locale: Locale, slug: string) {
   const language = await getLanguage(locale);
@@ -102,6 +104,8 @@ export default async function ToolPage(props: PageProps<"/[locale]/tools/[slug]"
   const useCases = Array.isArray(tr?.useCasesJson) ? (tr.useCasesJson as string[]) : [];
   const affiliate = tool.affiliateLinks[0];
   const ctaHref = affiliate ? `/go/${affiliate.id}` : tool.websiteUrl ?? "#";
+
+  const [contentSettings, defaultAuthor] = await Promise.all([getContentSettings(), getDefaultAuthor()]);
 
   // Product / Offer / AggregateOffer structured data from active offers.
   const { offers } = await getToolOffers(tool.id);
@@ -331,6 +335,12 @@ export default async function ToolPage(props: PageProps<"/[locale]/tools/[slug]"
           )}
         </aside>
       </div>
+
+      {defaultAuthor && contentSettings.authorBoxOnReviews && (
+        <div className="mt-2 max-w-3xl">
+          <AuthorBox author={defaultAuthor} locale={locale} lastUpdated={tool.updatedAt} />
+        </div>
+      )}
 
       {/* Alternatives */}
       {tool.alternatives.length > 0 && (

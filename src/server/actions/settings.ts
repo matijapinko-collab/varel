@@ -17,6 +17,27 @@ export async function saveAnalyticsSettings(form: FormData) {
   revalidatePath("/", "layout");
 }
 
+export async function saveContentSettings(form: FormData) {
+  const { userId } = await requirePermission("settings.manage");
+  const defaultAuthorId = fd(form, "defaultAuthorId") || null;
+  await setSetting("content", {
+    authorBoxOnArticles: fdBool(form, "authorBoxOnArticles"),
+    authorBoxOnReviews: fdBool(form, "authorBoxOnReviews"),
+    authorBoxOnComparisons: fdBool(form, "authorBoxOnComparisons"),
+    compactAuthorUnderTitle: fdBool(form, "compactAuthorUnderTitle"),
+    requireAuthorBeforePublishing: fdBool(form, "requireAuthorBeforePublishing"),
+    defaultAuthorId,
+  });
+  // Keep the Author.isDefault flag in sync with the chosen default author.
+  if (defaultAuthorId) {
+    await db.author.updateMany({ where: { id: { not: defaultAuthorId } }, data: { isDefault: false } });
+    await db.author.update({ where: { id: defaultAuthorId }, data: { isDefault: true, isActive: true } }).catch(() => {});
+  }
+  await audit({ userId, action: "SETTINGS_UPDATE", entityType: "SETTINGS", details: { section: "content" } });
+  revalidatePath("/administracija/settings/content");
+  revalidatePath("/", "layout");
+}
+
 export async function saveGeneralSettings(form: FormData) {
   const { userId } = await requirePermission("settings.manage");
   await setSetting("site_name", fd(form, "site_name"));

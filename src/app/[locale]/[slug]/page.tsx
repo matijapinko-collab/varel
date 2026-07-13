@@ -8,6 +8,7 @@ import {
   type BlockData,
 } from "@/components/blocks/block-renderer";
 import { buildSeoMetadata } from "@/lib/seo";
+import { AboutAuthor, ABOUT_SLUGS } from "@/components/content/about-author";
 
 /**
  * Catch-all CMS page route: any page created in the page builder
@@ -73,6 +74,7 @@ export default async function CmsPage(props: PageProps<"/[locale]/[slug]">) {
         blocks={page.blocks as unknown as BlockData[]}
         locale={locale as Locale}
       />
+      {ABOUT_SLUGS.has(slug) && <AboutAuthor locale={locale as Locale} />}
     </div>
   );
 }

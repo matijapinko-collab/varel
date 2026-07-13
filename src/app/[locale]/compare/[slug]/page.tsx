@@ -8,7 +8,10 @@ import { getLanguage, getSeo } from "@/lib/content";
 import { db } from "@/lib/db";
 import { FaqAccordion } from "@/components/blocks/faq-accordion";
 import { TrackView } from "@/components/analytics/track-view";
-import { buildSeoMetadata, JsonLd, faqJsonLd } from "@/lib/seo";
+import { buildSeoMetadata, JsonLd, faqJsonLd, articleJsonLd } from "@/lib/seo";
+import { getDefaultAuthor, localizeAuthor, getContentSettings } from "@/lib/authors";
+import { AuthorBox } from "@/components/content/author-box";
+import { CompactAuthorMeta } from "@/components/content/compact-author-meta";
 
 async function getComparison(locale: Locale, slug: string) {
   const language = await getLanguage(locale);
@@ -78,6 +81,10 @@ export default async function ComparisonPage(
     ? (tr.faqJson as { question: string; answer: string }[])
     : [];
 
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const [contentSettings, defaultAuthor] = await Promise.all([getContentSettings(), getDefaultAuthor()]);
+  const la = defaultAuthor ? localizeAuthor(defaultAuthor, locale) : null;
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <TrackView
@@ -87,8 +94,25 @@ export default async function ComparisonPage(
         locale={locale}
       />
       {faq.length > 0 && <JsonLd data={faqJsonLd(faq)} />}
+      {la && (
+        <JsonLd
+          data={articleJsonLd({
+            title: tr.title,
+            description: tr.summary,
+            authorName: la.displayName,
+            authorUrl: la.url,
+            authorImage: la.photoUrl,
+            authorSameAs: la.socials.map((s) => s.url),
+            dateModified: tr.updatedAt,
+            url: `${site}/${locale}/compare/${slug}`,
+          })}
+        />
+      )}
 
       <h1 className="text-3xl font-bold tracking-tight">{tr.title}</h1>
+      {defaultAuthor && contentSettings.compactAuthorUnderTitle && (
+        <CompactAuthorMeta author={defaultAuthor} locale={locale} updated={tr.updatedAt} />
+      )}
       {tr.summary && <p className="mt-3 max-w-3xl text-lg text-muted">{tr.summary}</p>}
 
       {/* Tool cards side by side */}
@@ -184,6 +208,12 @@ export default async function ComparisonPage(
             <FaqAccordion items={faq} />
           </div>
         </section>
+      )}
+
+      {defaultAuthor && contentSettings.authorBoxOnComparisons && (
+        <div className="max-w-3xl">
+          <AuthorBox author={defaultAuthor} locale={locale} lastUpdated={tr.updatedAt} />
+        </div>
       )}
 
       <p className="mt-8 text-xs text-muted">{t.affiliate_disclosure_short}</p>

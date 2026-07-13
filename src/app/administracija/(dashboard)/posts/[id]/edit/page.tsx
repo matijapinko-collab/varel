@@ -36,7 +36,7 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
   });
   if (!article) notFound();
 
-  const [languages, categories, tools, reviewers] = await Promise.all([
+  const [languages, categories, tools, reviewers, authors] = await Promise.all([
     db.language.findMany({ where: { isEnabled: true }, orderBy: { position: "asc" } }),
     db.category.findMany({
       where: { deletedAt: null, status: "PUBLISHED" },
@@ -49,6 +49,11 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
       select: { id: true, name: true },
     }),
     db.user.findMany({ where: { isActive: true, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.author.findMany({
+      where: { isActive: true },
+      orderBy: [{ isDefault: "desc" }, { internalName: "asc" }],
+      select: { id: true, displayNameEn: true, displayNameHr: true, photoUrl: true, bioShortEn: true, bioShortHr: true },
+    }),
   ]);
 
   const language = languages.find((l) => l.code === langCode) ?? languages.find((l) => l.code === "hr") ?? languages[0];
@@ -94,6 +99,7 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
     publishedAt: article.publishedAt?.toISOString() ?? null,
     updatedAt: article.updatedAt.toISOString(),
     author: article.author?.name ?? "—",
+    authorProfileId: article.authorProfileId,
     primaryCategoryId: article.primaryCategoryId,
     secondaryCategoryIds: toStrings(article.secondaryCategoryIdsJson),
     seo: {
@@ -121,6 +127,8 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
       sources: toSources(tr?.sourceReferencesJson),
       reviewerId: article.reviewerId,
       lastReviewedAt: article.lastReviewedAt ? article.lastReviewedAt.toISOString().slice(0, 10) : null,
+      lastTestedAt: article.lastTestedAt ? article.lastTestedAt.toISOString().slice(0, 10) : null,
+      pricingCheckedAt: article.pricingCheckedAt ? article.pricingCheckedAt.toISOString().slice(0, 10) : null,
     },
     prosCons: {
       enabled: article.prosConsEnabled,
@@ -152,6 +160,13 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
     categories: categories.map((c) => ({ id: c.id, name: categoryName(c) })),
     tools: tools.map((t) => ({ id: t.id, name: t.name })),
     reviewers: reviewers.map((u) => ({ id: u.id, name: u.name })),
+    authors: authors.map((x) => ({
+      id: x.id,
+      nameEn: x.displayNameEn,
+      nameHr: x.displayNameHr,
+      hasPhoto: Boolean(x.photoUrl),
+      hasBio: Boolean(x.bioShortEn || x.bioShortHr),
+    })),
     media: media.map((m) => ({ id: m.id, url: m.url, name: m.filename })),
     siteUrl,
   };

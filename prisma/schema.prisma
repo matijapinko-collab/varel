@@ -679,6 +679,12 @@ model Article {
   reviewerId               String?
   lastReviewedAt           DateTime?
 
+  // Localized public author (byline) + review/pricing freshness dates.
+  authorProfileId          String?
+  lastTestedAt             DateTime?
+  pricingCheckedAt         DateTime?
+
+  authorProfile   Author?                @relation("ArticleAuthorProfile", fields: [authorProfileId], references: [id])
   author          User?                  @relation("ArticleAuthor", fields: [authorId], references: [id])
   reviewer        User?                  @relation("ArticleReviewer", fields: [reviewerId], references: [id])
   featuredImage   Media?                 @relation("ArticleFeaturedImage", fields: [featuredImageId], references: [id])
@@ -691,7 +697,64 @@ model Article {
 
   @@index([status])
   @@index([primaryCategoryId])
+  @@index([authorProfileId])
   @@map("articles")
+}
+
+// -----------------------------------------------------------------
+// Localized author profiles (public byline). Separate from `User`
+// (login accounts) — an author is the public identity shown on
+// articles/reviews/guides, displayed differently per locale
+// (e.g. "Matt Pinko" on /en, "Matija Pinko" on /hr).
+// -----------------------------------------------------------------
+model Author {
+  id           String  @id @default(cuid())
+  internalName String
+
+  displayNameEn String
+  displayNameHr String
+  slugEn        String  @unique
+  slugHr        String  @unique
+
+  roleEn String?
+  roleHr String?
+
+  bioShortEn String? @db.Text
+  bioShortHr String? @db.Text
+  bioLongEn  String? @db.Text
+  bioLongHr  String? @db.Text
+
+  // Single uploaded photo (URL only — never raw base64). Reused for author
+  // box + About page unless a separate About photo is provided.
+  photoUrl      String?
+  photoAltEn    String?
+  photoAltHr    String?
+  aboutPhotoUrl String?
+  aboutPhotoAltEn String?
+  aboutPhotoAltHr String?
+
+  email        String?
+  websiteUrl   String?
+  linkedinUrl  String?
+  xUrl         String?
+  instagramUrl String?
+  youtubeUrl   String?
+  githubUrl    String?
+
+  expertiseTagsEnJson Json?
+  expertiseTagsHrJson Json?
+
+  defaultLanguage String  @default("hr")
+  isDefault       Boolean @default(false)
+  isActive        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  articles Article[] @relation("ArticleAuthorProfile")
+
+  @@index([isActive])
+  @@map("authors")
 }
 
 model ArticleTranslation {

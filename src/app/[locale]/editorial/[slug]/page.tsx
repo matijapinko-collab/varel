@@ -5,6 +5,8 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { getLanguage, getSeo } from "@/lib/content";
 import { db } from "@/lib/db";
 import { buildSeoMetadata, JsonLd, articleJsonLd } from "@/lib/seo";
+import { getDefaultAuthor, localizeAuthor, getContentSettings } from "@/lib/authors";
+import { AuthorBox } from "@/components/content/author-box";
 
 async function getPost(locale: Locale, slug: string) {
   const language = await getLanguage(locale);
@@ -54,13 +56,20 @@ export default async function EditorialPostPage(
   const author = post.editorialPost.author;
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+  const [contentSettings, defaultAuthor] = await Promise.all([getContentSettings(), getDefaultAuthor()]);
+  const la = defaultAuthor ? localizeAuthor(defaultAuthor, locale) : null;
+  const displayName = la?.displayName ?? author.name;
+
   return (
     <article className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <JsonLd
         data={articleJsonLd({
           title: post.title,
           description: post.excerpt,
-          authorName: author.name,
+          authorName: displayName,
+          authorUrl: la?.url,
+          authorImage: la?.photoUrl,
+          authorSameAs: la?.socials.map((s) => s.url),
           datePublished: post.editorialPost.publishedAt,
           dateModified: post.updatedAt,
           url: `${site}/${locale}/editorial/${post.slug}`,
@@ -79,7 +88,8 @@ export default async function EditorialPostPage(
         </div>
         <div className="min-w-0">
           <div className="text-sm font-semibold">
-            {t.written_by} {author.name} —{" "}
+            {t.written_by}{" "}
+            {la ? <a href={la.path} className="hover:text-primary">{displayName}</a> : displayName} —{" "}
             <span className="text-primary">{t.human_written}</span>
           </div>
           <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted">
@@ -114,10 +124,14 @@ export default async function EditorialPostPage(
         </div>
       )}
 
-      {author.bio && (
-        <div className="mt-12 rounded-card border border-border bg-background-secondary p-6 text-sm text-muted">
-          <span className="font-semibold text-foreground">{author.name}</span> — {author.bio}
-        </div>
+      {defaultAuthor && contentSettings.authorBoxOnArticles ? (
+        <AuthorBox author={defaultAuthor} locale={locale} lastUpdated={post.updatedAt} />
+      ) : (
+        author.bio && (
+          <div className="mt-12 rounded-card border border-border bg-background-secondary p-6 text-sm text-muted">
+            <span className="font-semibold text-foreground">{displayName}</span> — {author.bio}
+          </div>
+        )
       )}
     </article>
   );
