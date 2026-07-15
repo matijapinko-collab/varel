@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
 import { HvacNav } from "@/components/hvac/hvac-nav";
 import { HvacFooter } from "@/components/hvac/hvac-footer";
 import { HvacEarlyAccessForm } from "@/components/hvac/hvac-early-access-form";
 import { HVAC_ROUTES } from "@/lib/hvac/content";
+import { isHvacB2bEnabled, getHvacSession } from "@/lib/hvac/b2b-auth";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://varel.io";
 
@@ -15,7 +17,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-export default function HvacB2bPage() {
+export default async function HvacB2bPage() {
+  // When the B2B app is live, this route is the entry: route to app or login.
+  if (isHvacB2bEnabled()) {
+    const session = await getHvacSession();
+    redirect(session ? `${HVAC_ROUTES.login}/nadzorna-ploca` : `${HVAC_ROUTES.login}/prijava`);
+  }
+  // Otherwise keep the polished "coming soon" page (gated launch).
   return (
     <>
       <HvacNav />
