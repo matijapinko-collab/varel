@@ -1632,3 +1632,872 @@ model LlmScanRequest {
   @@index([email])
   @@map("llm_scan_requests")
 }
+
+// =================================================================
+// Varel HVAC — B2B multi-tenant SaaS (Croatian MVP).
+// Every tenant-owned record carries `tenantId` (indexed). Tenant
+// isolation is enforced server-side in the data layer, never by the
+// client. Money is Decimal(10,2). Auth users (HvacUser) are separate
+// from the admin `User` table.
+// =================================================================
+
+enum HvacPlan {
+  SOLO
+  TEAM
+  BUSINESS
+}
+
+enum HvacContractTerm {
+  MONTHLY
+  ANNUAL12
+  ANNUAL24
+}
+
+enum HvacTenantStatus {
+  TRIAL
+  PENDING_ACTIVATION
+  ACTIVE
+  OVERDUE
+  SUSPENDED
+  CANCELLED
+}
+
+enum HvacRole {
+  OWNER
+  ADMINISTRATOR
+  DISPATCHER
+  TECHNICIAN
+  ACCOUNTANT
+}
+
+enum HvacEmploymentType {
+  EMPLOYEE
+  EXTERNAL
+  TEMPORARY
+}
+
+enum HvacCustomerType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum HvacUnitType {
+  SPLIT
+  MULTI_SPLIT
+  PORTABLE
+  CASSETTE
+  DUCTED
+  FLOOR
+  ROOFTOP
+  HEAT_PUMP
+  OTHER
+}
+
+enum HvacUnitStatus {
+  ACTIVE
+  TEMPORARILY_INACTIVE
+  REMOVED
+  REPLACED
+  UNDER_REPAIR
+  ARCHIVED
+}
+
+enum HvacInquiryStatus {
+  NEW
+  CONTACTED
+  WAITING_INFO
+  WAITING_APPOINTMENT
+  SCHEDULED
+  REJECTED
+  CLOSED
+}
+
+enum HvacAppointmentStatus {
+  NEW_INQUIRY
+  WAITING_CONFIRMATION
+  CONFIRMED
+  TECH_ASSIGNED
+  TECH_EN_ROUTE
+  IN_PROGRESS
+  COMPLETED
+  WAITING_PARTS
+  POSTPONED
+  CANCELLED
+  NO_SHOW
+}
+
+enum HvacPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum HvacWorkOrderStatus {
+  DRAFT
+  SCHEDULED
+  EN_ROUTE
+  IN_PROGRESS
+  PAUSED
+  WAITING_PARTS
+  COMPLETED
+  SENT
+  CANCELLED
+}
+
+enum HvacQuoteStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED_WORKORDER
+  CONVERTED_INVOICE
+}
+
+enum HvacInvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum HvacPaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+enum HvacReminderStatus {
+  FUTURE
+  UPCOMING
+  READY
+  CONTACTED
+  BOOKED
+  POSTPONED
+  REJECTED
+  COMPLETED
+}
+
+enum HvacSource {
+  HOSTED_BOOKING
+  PHONE
+  EMAIL
+  WEBSITE
+  SOCIAL
+  RECOMMENDATION
+  EXISTING_CUSTOMER
+  MANUAL
+  OTHER
+}
+
+enum HvacWorkOrderItemKind {
+  LABOR
+  MATERIAL
+  PART
+}
+
+enum HvacDocType {
+  WORK_ORDER
+  QUOTATION
+  INVOICE
+}
+
+model HvacTenant {
+  id                  String           @id @default(cuid())
+  name                String
+  slug                String           @unique
+  oib                 String?
+  legalForm           String?
+  address             String?
+  city                String?
+  postalCode          String?
+  phone               String?
+  email               String?
+  website             String?
+  logoUrl             String?
+  documentFooter      String?          @db.Text
+  vatRegistered       Boolean          @default(false)
+  plan                HvacPlan         @default(SOLO)
+  status              HvacTenantStatus @default(TRIAL)
+  onboardingStep      Int              @default(0)
+  onboardingCompleted Boolean          @default(false)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  deletedAt           DateTime?
+
+  settings      HvacTenantSettings?
+  bookingSettings HvacBookingSettings?
+  subscription  HvacSubscription?
+  members       HvacTenantUser[]
+
+  @@index([status])
+  @@map("hvac_tenants")
+}
+
+model HvacTenantSettings {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  workingHoursJson Json?
+  blockedDatesJson Json?
+  invoiceVatRate  Decimal  @default(25) @db.Decimal(5, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant HvacTenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("hvac_tenant_settings")
+}
+
+model HvacSubscription {
+  id                   String           @id @default(cuid())
+  tenantId             String           @unique
+  plan                 HvacPlan         @default(SOLO)
+  term                 HvacContractTerm @default(MONTHLY)
+  monthlyPriceEur      Decimal          @db.Decimal(10, 2)
+  includedTechnicians  Int              @default(1)
+  additionalTechnicians Int             @default(0)
+  status               HvacTenantStatus @default(TRIAL)
+  startDate            DateTime?
+  endDate              DateTime?
+  trialEndsAt          DateTime?
+  billingNotes         String?          @db.Text
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  tenant HvacTenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("hvac_subscriptions")
+}
+
+// Auth identity for B2B users — separate from the admin `User` table.
+model HvacUser {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  passwordHash      String
+  name              String
+  phone             String?
+  emailVerifiedAt   DateTime?
+  verifyToken       String?   @unique
+  resetToken        String?   @unique
+  resetTokenExpires DateTime?
+  isActive          Boolean   @default(true)
+  twoFactorEnabled  Boolean   @default(false)
+  twoFactorSecret   String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  memberships HvacTenantUser[]
+
+  @@map("hvac_users")
+}
+
+// Tenant membership + role (a user can belong to multiple tenants).
+model HvacTenantUser {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      HvacRole @default(OWNER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant HvacTenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   HvacUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("hvac_tenant_users")
+}
+
+model HvacTechnician {
+  id              String             @id @default(cuid())
+  tenantId        String
+  userId          String?
+  name            String
+  phone           String?
+  email           String?
+  photoUrl        String?
+  employmentType  HvacEmploymentType @default(EMPLOYEE)
+  specialization  String?
+  serviceArea     String?
+  calendarColor   String             @default("#0ea5e9")
+  workingHoursJson Json?
+  notes           String?            @db.Text
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+
+  @@index([tenantId, isActive])
+  @@map("hvac_technicians")
+}
+
+model HvacService {
+  id             String   @id @default(cuid())
+  tenantId       String
+  name           String
+  description    String?  @db.Text
+  durationMin    Int      @default(60)
+  defaultPriceEur Decimal? @db.Decimal(10, 2)
+  bookingVisible Boolean  @default(true)
+  manualConfirm  Boolean  @default(true)
+  isActive       Boolean  @default(true)
+  position       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId, isActive])
+  @@map("hvac_services")
+}
+
+model HvacCustomer {
+  id               String           @id @default(cuid())
+  tenantId         String
+  type             HvacCustomerType @default(INDIVIDUAL)
+  firstName        String?
+  lastName         String?
+  companyName      String?
+  oib              String?
+  email            String?
+  phone            String?
+  altPhone         String?
+  preferredContact String?
+  billingAddress   String?
+  billingCity      String?
+  billingPostalCode String?
+  notes            String?          @db.Text
+  source           HvacSource       @default(MANUAL)
+  isActive         Boolean          @default(true)
+  archivedAt       DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  locations HvacLocation[]
+  units     HvacUnit[]
+
+  @@index([tenantId, isActive])
+  @@index([tenantId, lastName])
+  @@map("hvac_customers")
+}
+
+model HvacLocation {
+  id                String    @id @default(cuid())
+  tenantId          String
+  customerId        String
+  name              String
+  address           String?
+  city              String?
+  postalCode        String?
+  latitude          Float?
+  longitude         Float?
+  floor             String?
+  accessInstructions String?  @db.Text
+  parkingInfo       String?
+  contactPerson     String?
+  contactPhone      String?
+  notes             String?   @db.Text
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  customer HvacCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  units    HvacUnit[]
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@map("hvac_locations")
+}
+
+model HvacUnit {
+  id               String         @id @default(cuid())
+  tenantId         String
+  customerId       String
+  locationId       String
+  internalName     String?
+  manufacturer     String?
+  model            String?
+  serialNumber     String?
+  unitType         HvacUnitType   @default(SPLIT)
+  nominalPowerKw   Float?
+  installationDate DateTime?
+  manufactureYear  Int?
+  room             String?
+  refrigerant      String?
+  indoorId         String?
+  outdoorId        String?
+  warrantyStart    DateTime?
+  warrantyEnd      DateTime?
+  installerId      String?
+  status           HvacUnitStatus @default(ACTIVE)
+  nextServiceDate  DateTime?
+  notes            String?        @db.Text
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+
+  customer  HvacCustomer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  location  HvacLocation     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  reminders HvacServiceReminder[]
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([locationId])
+  @@index([tenantId, serialNumber])
+  @@map("hvac_units")
+}
+
+model HvacInquiry {
+  id               String            @id @default(cuid())
+  tenantId         String
+  customerId       String?
+  leadName         String?
+  leadEmail        String?
+  leadPhone        String?
+  locationId       String?
+  serviceId        String?
+  preferredTime    String?
+  issueDescription String?           @db.Text
+  photoAssetId     String?
+  source           HvacSource        @default(MANUAL)
+  status           HvacInquiryStatus @default(NEW)
+  assignedUserId   String?
+  note             String?           @db.Text
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([tenantId, status])
+  @@map("hvac_inquiries")
+}
+
+model HvacAppointment {
+  id                 String                @id @default(cuid())
+  tenantId           String
+  customerId         String
+  locationId         String?
+  unitId             String?
+  serviceId          String?
+  technicianId       String?
+  startAt            DateTime
+  endAt              DateTime
+  estimatedDurationMin Int?
+  status             HvacAppointmentStatus @default(WAITING_CONFIRMATION)
+  priority           HvacPriority          @default(NORMAL)
+  source             HvacSource            @default(MANUAL)
+  problemDescription String?               @db.Text
+  internalNote       String?               @db.Text
+  customerNote       String?               @db.Text
+  confirmed          Boolean               @default(false)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  deletedAt          DateTime?
+
+  @@index([tenantId, startAt])
+  @@index([tenantId, technicianId, startAt])
+  @@index([customerId])
+  @@map("hvac_appointments")
+}
+
+model HvacWorkOrder {
+  id               String              @id @default(cuid())
+  tenantId         String
+  number           String
+  customerId       String
+  locationId       String?
+  unitId           String?
+  appointmentId    String?
+  serviceId        String?
+  technicianId     String?
+  status           HvacWorkOrderStatus @default(DRAFT)
+  priority         HvacPriority        @default(NORMAL)
+  issueDescription String?             @db.Text
+  workPerformed    String?             @db.Text
+  technicianNotes  String?             @db.Text
+  customerNotes    String?             @db.Text
+  arrivalAt        DateTime?
+  startAt          DateTime?
+  completedAt      DateTime?
+  laborMinutes     Int?
+  recommendation   String?             @db.Text
+  nextServiceDate  DateTime?
+  paymentMethod    HvacPaymentMethod?
+  paymentStatus    HvacInvoiceStatus?
+  subtotalEur      Decimal?            @db.Decimal(10, 2)
+  vatEur           Decimal?            @db.Decimal(10, 2)
+  totalEur         Decimal?            @db.Decimal(10, 2)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  deletedAt        DateTime?
+
+  items     HvacWorkOrderItem[]
+  photos    HvacWorkOrderPhoto[]
+  signature HvacWorkOrderSignature?
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@index([customerId])
+  @@index([technicianId])
+  @@map("hvac_work_orders")
+}
+
+model HvacWorkOrderItem {
+  id          String                @id @default(cuid())
+  tenantId    String
+  workOrderId String
+  kind        HvacWorkOrderItemKind @default(MATERIAL)
+  description String
+  quantity    Decimal               @default(1) @db.Decimal(10, 2)
+  unit        String                @default("kom")
+  unitPriceEur Decimal              @default(0) @db.Decimal(10, 2)
+  totalEur    Decimal               @default(0) @db.Decimal(10, 2)
+  position    Int                   @default(0)
+
+  workOrder HvacWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@map("hvac_work_order_items")
+}
+
+model HvacWorkOrderPhoto {
+  id          String   @id @default(cuid())
+  tenantId    String
+  workOrderId String
+  fileAssetId String
+  kind        String   @default("OTHER")
+  createdAt   DateTime @default(now())
+
+  workOrder HvacWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@map("hvac_work_order_photos")
+}
+
+model HvacWorkOrderSignature {
+  id            String   @id @default(cuid())
+  tenantId      String
+  workOrderId   String   @unique
+  fileAssetId   String?
+  signedByName  String
+  consentText   String   @db.Text
+  collectedById String?
+  signedAt      DateTime @default(now())
+
+  workOrder HvacWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@map("hvac_work_order_signatures")
+}
+
+model HvacQuotation {
+  id           String          @id @default(cuid())
+  tenantId     String
+  number       String
+  customerId   String
+  locationId   String?
+  issueDate    DateTime        @default(now())
+  validUntil   DateTime?
+  status       HvacQuoteStatus @default(DRAFT)
+  notes        String?         @db.Text
+  paymentTerms String?
+  subtotalEur  Decimal         @default(0) @db.Decimal(10, 2)
+  vatEur       Decimal         @default(0) @db.Decimal(10, 2)
+  totalEur     Decimal         @default(0) @db.Decimal(10, 2)
+  workOrderId  String?
+  invoiceId    String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  items HvacQuotationItem[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@index([customerId])
+  @@map("hvac_quotations")
+}
+
+model HvacQuotationItem {
+  id           String  @id @default(cuid())
+  tenantId     String
+  quotationId  String
+  description  String
+  quantity     Decimal @default(1) @db.Decimal(10, 2)
+  unit         String  @default("kom")
+  unitPriceEur Decimal @default(0) @db.Decimal(10, 2)
+  discountPct  Decimal @default(0) @db.Decimal(5, 2)
+  vatPct       Decimal @default(25) @db.Decimal(5, 2)
+  totalEur     Decimal @default(0) @db.Decimal(10, 2)
+  position     Int     @default(0)
+
+  quotation HvacQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+  @@map("hvac_quotation_items")
+}
+
+model HvacInvoice {
+  id             String            @id @default(cuid())
+  tenantId       String
+  number         String
+  customerId     String
+  billingAddress String?
+  oib            String?
+  issueDate      DateTime          @default(now())
+  dueDate        DateTime?
+  status         HvacInvoiceStatus @default(DRAFT)
+  paymentMethod  HvacPaymentMethod?
+  subtotalEur    Decimal           @default(0) @db.Decimal(10, 2)
+  vatEur         Decimal           @default(0) @db.Decimal(10, 2)
+  totalEur       Decimal           @default(0) @db.Decimal(10, 2)
+  internalNote   String?           @db.Text
+  customerNote   String?           @db.Text
+  workOrderId    String?
+  quotationId    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  items    HvacInvoiceItem[]
+  payments HvacPayment[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@index([customerId])
+  @@map("hvac_invoices")
+}
+
+model HvacInvoiceItem {
+  id           String  @id @default(cuid())
+  tenantId     String
+  invoiceId    String
+  description  String
+  quantity     Decimal @default(1) @db.Decimal(10, 2)
+  unit         String  @default("kom")
+  unitPriceEur Decimal @default(0) @db.Decimal(10, 2)
+  vatPct       Decimal @default(25) @db.Decimal(5, 2)
+  totalEur     Decimal @default(0) @db.Decimal(10, 2)
+  position     Int     @default(0)
+
+  invoice HvacInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("hvac_invoice_items")
+}
+
+model HvacPayment {
+  id        String            @id @default(cuid())
+  tenantId  String
+  invoiceId String
+  amountEur Decimal           @db.Decimal(10, 2)
+  method    HvacPaymentMethod @default(BANK_TRANSFER)
+  paidAt    DateTime          @default(now())
+  note      String?
+  createdAt DateTime          @default(now())
+
+  invoice HvacInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("hvac_payments")
+}
+
+model HvacServiceReminder {
+  id              String             @id @default(cuid())
+  tenantId        String
+  unitId          String
+  customerId      String
+  lastServiceDate DateTime?
+  nextServiceDate DateTime
+  intervalMonths  Int                @default(12)
+  status          HvacReminderStatus @default(FUTURE)
+  contactAttempts Int                @default(0)
+  note            String?            @db.Text
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  unit HvacUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, nextServiceDate])
+  @@index([tenantId, status])
+  @@map("hvac_service_reminders")
+}
+
+model HvacBookingSettings {
+  id                String   @id @default(cuid())
+  tenantId          String   @unique
+  enabled           Boolean  @default(false)
+  autoConfirm       Boolean  @default(false)
+  minNoticeHours    Int      @default(24)
+  horizonDays       Int      @default(60)
+  bufferMin         Int      @default(15)
+  serviceArea       String?
+  publicPhone       String?
+  publicEmail       String?
+  publicServicesJson Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant HvacTenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("hvac_booking_settings")
+}
+
+model HvacBookingSubmission {
+  id                String            @id @default(cuid())
+  tenantId          String
+  name              String
+  phone             String
+  email             String
+  address           String?
+  city              String?
+  serviceId         String?
+  preferredDate     DateTime?
+  preferredTimeRange String?
+  deviceCount       Int?
+  manufacturer      String?
+  issueDescription  String?           @db.Text
+  photoAssetId      String?
+  status            HvacInquiryStatus @default(NEW)
+  inquiryId         String?
+  ipHash            String?
+  createdAt         DateTime          @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("hvac_booking_submissions")
+}
+
+model HvacFileAsset {
+  id           String    @id @default(cuid())
+  tenantId     String
+  kind         String
+  storageKey   String
+  url          String?
+  mimeType     String
+  size         Int
+  originalName String?
+  uploadedById String?
+  entityType   String?
+  entityId     String?
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId, entityType, entityId])
+  @@map("hvac_file_assets")
+}
+
+// Per-tenant, per-doc-type, per-year sequence for RN-/PON-/RAC- numbers.
+model HvacDocCounter {
+  id       String      @id @default(cuid())
+  tenantId String
+  docType  HvacDocType
+  year     Int
+  counter  Int         @default(0)
+
+  @@unique([tenantId, docType, year])
+  @@map("hvac_doc_counters")
+}
+
+model HvacActivityLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  metaJson   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("hvac_activity_logs")
+}
+
+model HvacAuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String?
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  beforeJson Json?
+  afterJson  Json?
+  ipHash     String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("hvac_audit_logs")
+}
+
+model HvacNotification {
+  id        String    @id @default(cuid())
+  tenantId  String
+  userId    String?
+  type      String
+  title     String
+  body      String?   @db.Text
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([tenantId, userId, readAt])
+  @@map("hvac_notifications")
+}
+
+model HvacEmailLog {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  recipient String
+  template  String
+  status    String   @default("sent")
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("hvac_email_logs")
+}
+
+model HvacImportJob {
+  id           String    @id @default(cuid())
+  tenantId     String
+  userId       String?
+  kind         String
+  status       String    @default("pending")
+  totalRows    Int       @default(0)
+  importedRows Int       @default(0)
+  errorRows    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  errors HvacImportRowError[]
+
+  @@index([tenantId])
+  @@map("hvac_import_jobs")
+}
+
+model HvacImportRowError {
+  id          String @id @default(cuid())
+  importJobId String
+  rowIndex    Int
+  message     String
+  rawJson     Json?
+
+  job HvacImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([importJobId])
+  @@map("hvac_import_row_errors")
+}
+
+model HvacSupportAccessLog {
+  id          String    @id @default(cuid())
+  tenantId    String
+  adminUserId String
+  reason      String
+  startedAt   DateTime  @default(now())
+  endsAt      DateTime?
+  endedAt     DateTime?
+
+  @@index([tenantId, startedAt])
+  @@map("hvac_support_access_logs")
+}
