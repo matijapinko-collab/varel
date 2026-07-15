@@ -54,10 +54,15 @@ export function proxy(request: NextRequest) {
   }
 
   // Skip API routes, affiliate redirects, files, and Next.js internals.
+  // Varel HVAC is a Croatian-only product served on unprefixed routes
+  // (/hvac, /hvac-demo, /hvac-b2b) — no locale segment.
   if (
     pathname.startsWith("/api") ||
     pathname.startsWith("/go/") ||
     pathname.startsWith("/o/") ||
+    pathname === "/hvac" ||
+    pathname.startsWith("/hvac-") ||
+    pathname.startsWith("/hvac/") ||
     pathname.startsWith("/_next") ||
     pathname === "/robots.txt" ||
     pathname.startsWith("/sitemap") ||

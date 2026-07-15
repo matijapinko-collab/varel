@@ -14,6 +14,7 @@ import {
   Newspaper,
   MessageSquareText,
   BadgePercent,
+  AirVent,
   Link2,
   Plug,
   Radar,
@@ -68,6 +69,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
     items: [
       { href: "/administracija/price-checker", label: "Best Deals / Price Checker", icon: BadgePercent },
       { href: "/administracija/llm-reports", label: "LLM Reports", icon: Radar },
+      { href: "/administracija/hvac", label: "Varel HVAC leads", icon: AirVent },
       { href: "/administracija/affiliate", label: "Affiliate Links", icon: Link2 },
     ],
   },
