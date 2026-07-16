@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireBisneysUser } from "@/lib/bisneyscrm/auth/guard";
 import { BisneysPageHeader } from "@/components/bisneyscrm/shared/module-page";
-import { UserCircle, LayoutGrid, SlidersHorizontal, Users, ScrollText } from "lucide-react";
+import { UserCircle, LayoutGrid, SlidersHorizontal, Users, ScrollText, CopyCheck, Archive } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +13,8 @@ export default async function SettingsIndex() {
     { href: "/bisneyscrm/settings/account", title: "Račun", desc: "Promjena zaporke i sigurnost sesija.", icon: UserCircle, show: true },
     { href: "/bisneyscrm/users", title: "Korisnici", desc: "Upravljanje CRM korisnicima i ulogama.", icon: Users, show: isSuper },
     { href: "/bisneyscrm/settings/trello", title: "Trello integracija", desc: "Povezivanje, boardovi i mapiranje lista.", icon: LayoutGrid, show: isSuper },
+    { href: "/bisneyscrm/settings/duplicates", title: "Duplikati", desc: "Pregled i spajanje mogućih duplikata.", icon: CopyCheck, show: true },
+    { href: "/bisneyscrm/settings/archive", title: "Arhiva", desc: "Soft-deleted zapisi i vraćanje.", icon: Archive, show: isSuper },
     { href: "/bisneyscrm/audit-log", title: "Audit log", desc: "Zapis kritičnih promjena.", icon: ScrollText, show: isSuper },
     { href: "/bisneyscrm/settings/system", title: "Sistemske postavke", desc: "Globalne postavke Bisneys CRM-a.", icon: SlidersHorizontal, show: isSuper },
   ].filter((c) => c.show);
