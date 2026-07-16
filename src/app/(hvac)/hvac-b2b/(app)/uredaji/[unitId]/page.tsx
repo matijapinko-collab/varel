@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireTenantContext } from "@/lib/hvac/tenant";
-import { customerDisplayName, UNIT_TYPE_LABELS, UNIT_STATUS, TONE_CLASS } from "@/lib/hvac/b2b-config";
+import { customerDisplayName, UNIT_TYPE_LABELS, UNIT_STATUS, WORK_ORDER_STATUS, TONE_CLASS } from "@/lib/hvac/b2b-config";
+import { formatEur } from "@/lib/hvac/format";
 import { PageHeader, Field, Input, Select, Textarea, SubmitButton, FormSection } from "@/components/admin/ui";
 import { updateUnit } from "@/server/actions/hvac-customers";
 import type { HvacUnitType, HvacUnitStatus } from "@/generated/prisma/client";
@@ -19,6 +20,13 @@ export default async function UnitProfilePage(props: PageProps<"/hvac-b2b/uredaj
     include: { customer: true, location: true },
   });
   if (!u) notFound();
+
+  const workOrders = await db.hvacWorkOrder.findMany({
+    where: { unitId, tenantId: ctx.tenantId, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: { id: true, number: true, status: true, totalEur: true, completedAt: true, createdAt: true },
+  });
 
   const title = [u.manufacturer, u.model].filter(Boolean).join(" ") || u.internalName || "Klima-uređaj";
 
@@ -57,7 +65,29 @@ export default async function UnitProfilePage(props: PageProps<"/hvac-b2b/uredaj
       </form>
 
       <FormSection title="Servisna povijest">
-        <p className="text-sm text-muted">Radni nalozi i servisi za ovaj uređaj prikazat će se ovdje. Modul radnih naloga dolazi u sljedećoj fazi.</p>
+        {workOrders.length === 0 ? (
+          <p className="text-sm text-muted">Još nema radnih naloga za ovaj uređaj.</p>
+        ) : (
+          <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+            {workOrders.map((wo) => {
+              const st = WORK_ORDER_STATUS[wo.status];
+              return (
+                <li key={wo.id}>
+                  <Link href={`/hvac-b2b/radni-nalozi/${wo.id}`} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm hover:bg-background-secondary">
+                    <span className="flex items-center gap-2">
+                      <span className="font-mono font-medium">{wo.number}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${TONE_CLASS[st.tone]}`}>{st.label}</span>
+                    </span>
+                    <span className="flex items-center gap-3 text-muted">
+                      {wo.totalEur ? <span className="tabular-nums">{formatEur(Number(wo.totalEur))}</span> : null}
+                      <span className="text-xs">{(wo.completedAt ?? wo.createdAt).toISOString().slice(0, 10)}</span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </FormSection>
     </div>
   );

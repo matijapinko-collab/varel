@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Copy, Ban, MapPin, Phone } from "lucide-react";
+import { Copy, Ban, MapPin, Phone, FileText } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireTenantContext } from "@/lib/hvac/tenant";
 import { loadAppointmentOptions } from "@/lib/hvac/appointment-options";
@@ -9,6 +9,7 @@ import { fmtDayLong, fmtTime, isoDate } from "@/lib/hvac/calendar";
 import { PageHeader, FormSection } from "@/components/admin/ui";
 import { AppointmentForm } from "@/components/hvac/b2b/appointment-form";
 import { updateAppointment, setAppointmentStatus, cancelAppointment, duplicateAppointment } from "@/server/actions/hvac-appointments";
+import { createWorkOrderFromAppointment } from "@/server/actions/hvac-workorders";
 import type { HvacAppointmentStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,10 @@ export default async function AppointmentPage(props: PageProps<"/hvac-b2b/kalend
   });
   if (!a) notFound();
 
+  const workOrder = await db.hvacWorkOrder.findFirst({
+    where: { tenantId: ctx.tenantId, appointmentId: a.id, deletedAt: null },
+    select: { id: true, number: true },
+  });
   const options = await loadAppointmentOptions(ctx.tenantId);
   const st = APPOINTMENT_STATUS[a.status];
   const durationMin = Math.round((a.endAt.getTime() - a.startAt.getTime()) / 60000);
@@ -82,6 +87,13 @@ export default async function AppointmentPage(props: PageProps<"/hvac-b2b/kalend
             <button className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:text-red-500"><Ban size={13} /> Otkaži</button>
           </form>
         )}
+        {workOrder ? (
+          <Link href={`/hvac-b2b/radni-nalozi/${workOrder.id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 px-3 py-1.5 text-xs font-semibold text-sky-600 hover:bg-sky-500/5 dark:text-sky-300"><FileText size={13} /> Radni nalog {workOrder.number}</Link>
+        ) : (
+          <form action={createWorkOrderFromAppointment.bind(null, a.id)}>
+            <button className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-cyan-500 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"><FileText size={13} /> Kreiraj radni nalog</button>
+          </form>
+        )}
       </div>
 
       <FormSection title="Uredi termin">
@@ -106,8 +118,6 @@ export default async function AppointmentPage(props: PageProps<"/hvac-b2b/kalend
           submitLabel="Spremi termin"
         />
       </FormSection>
-
-      <p className="mt-4 text-xs text-muted">Radni nalog iz termina dolazi u sljedećoj fazi razvoja.</p>
     </div>
   );
 }

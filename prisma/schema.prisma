@@ -1938,6 +1938,7 @@ model HvacTechnician {
   deletedAt       DateTime?
 
   appointments HvacAppointment[]
+  workOrders   HvacWorkOrder[]
 
   @@index([tenantId, isActive])
   @@map("hvac_technicians")
@@ -1958,6 +1959,7 @@ model HvacService {
   updatedAt      DateTime @updatedAt
 
   appointments HvacAppointment[]
+  workOrders   HvacWorkOrder[]
 
   @@index([tenantId, isActive])
   @@map("hvac_services")
@@ -1988,6 +1990,7 @@ model HvacCustomer {
   locations    HvacLocation[]
   units        HvacUnit[]
   appointments HvacAppointment[]
+  workOrders   HvacWorkOrder[]
 
   @@index([tenantId, isActive])
   @@index([tenantId, lastName])
@@ -2018,6 +2021,7 @@ model HvacLocation {
   customer     HvacCustomer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
   units        HvacUnit[]
   appointments HvacAppointment[]
+  workOrders   HvacWorkOrder[]
 
   @@index([tenantId])
   @@index([customerId])
@@ -2055,6 +2059,7 @@ model HvacUnit {
   location     HvacLocation          @relation(fields: [locationId], references: [id], onDelete: Cascade)
   reminders    HvacServiceReminder[]
   appointments HvacAppointment[]
+  workOrders   HvacWorkOrder[]
 
   @@index([tenantId])
   @@index([customerId])
@@ -2151,9 +2156,14 @@ model HvacWorkOrder {
   updatedAt        DateTime            @updatedAt
   deletedAt        DateTime?
 
-  items     HvacWorkOrderItem[]
-  photos    HvacWorkOrderPhoto[]
-  signature HvacWorkOrderSignature?
+  customer   HvacCustomer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  location   HvacLocation?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  unit       HvacUnit?       @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  service    HvacService?    @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  technician HvacTechnician? @relation(fields: [technicianId], references: [id], onDelete: SetNull)
+  items      HvacWorkOrderItem[]
+  photos     HvacWorkOrderPhoto[]
+  signature  HvacWorkOrderSignature?
 
   @@unique([tenantId, number])
   @@index([tenantId, status])
