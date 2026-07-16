@@ -7,6 +7,8 @@ import { BisneysPageHeader } from "@/components/bisneyscrm/shared/module-page";
 import { BackLink, DetailCard, DetailRow, StatusPill, LinkButton, SelectInput } from "@/components/bisneyscrm/shared/ui";
 import { CANDIDATE_STATUS_LABELS, money, shortDate, dateTime } from "@/lib/bisneyscrm/format";
 import { PROFILE_STATUS_LABELS, EDUCATION_LEVEL_LABELS, AVAILABILITY_LABELS, RELOCATION_LABELS, CANDIDATE_SOURCE_LABELS } from "@/lib/bisneyscrm/candidates/labels";
+import { computeCandidateFlags } from "@/lib/bisneyscrm/candidates/derived";
+import { RecruitmentSection, CandidateFlagBadges } from "@/components/bisneyscrm/candidates/recruitment-section";
 
 export const dynamic = "force-dynamic";
 
@@ -36,9 +38,13 @@ export default async function CandidateProfile({ params }: { params: Promise<{ i
     ? `${c.expectedSalaryMin ? money(c.expectedSalaryMin, c.salaryCurrency ?? "EUR") : ""}${c.expectedSalaryMax ? ` – ${money(c.expectedSalaryMax, c.salaryCurrency ?? "EUR")}` : ""}`.trim()
     : c.expectedSalary;
 
-  const [jobs, activities] = await Promise.all([
+  const [jobs, activities, applications, contacts, interviews, flags] = await Promise.all([
     db.bisneysJob.findMany({ where: { deletedAt: null }, orderBy: { title: "asc" }, take: 100, select: { id: true, title: true } }),
-    db.bisneysActivity.findMany({ where: { candidateId: c.id }, orderBy: { occurredAt: "desc" }, take: 12 }),
+    db.bisneysActivity.findMany({ where: { candidateId: c.id }, orderBy: { occurredAt: "desc" }, take: 15 }),
+    db.bisneysCandidateApplication.findMany({ where: { candidateId: c.id, deletedAt: null }, include: { job: { select: { id: true, title: true } } }, orderBy: { appliedAt: "desc" } }),
+    db.bisneysContactAttempt.findMany({ where: { candidateId: c.id }, orderBy: { createdAt: "desc" }, take: 15 }),
+    db.bisneysInterview.findMany({ where: { candidateId: c.id, deletedAt: null }, orderBy: { scheduledAt: "desc" } }),
+    computeCandidateFlags(c.id),
   ]);
 
   return (
@@ -52,6 +58,8 @@ export default async function CandidateProfile({ params }: { params: Promise<{ i
           <button type="submit" className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-red-500 hover:border-red-400">Arhiviraj</button>
         </form>
       </BisneysPageHeader>
+
+      <div className="mb-4"><CandidateFlagBadges flags={flags} /></div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <DetailCard title="Kontakt">
@@ -128,6 +136,8 @@ export default async function CandidateProfile({ params }: { params: Promise<{ i
           )}
         </DetailCard>
       </div>
+
+      <RecruitmentSection candidateId={c.id} applications={applications} contacts={contacts} interviews={interviews} jobs={jobs} />
 
       <div className="mt-4">
         <DetailCard title="Aktivnosti">

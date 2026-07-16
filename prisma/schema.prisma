@@ -3109,6 +3109,9 @@ model BisneysCandidate {
   educationRecords BisneysEducationRecord[]
   drivingLicenses  BisneysCandidateDrivingLicense[]
   preference     BisneysCandidatePreference?
+  applications   BisneysCandidateApplication[]
+  contactAttempts BisneysContactAttempt[]
+  interviews     BisneysInterview[]
 
   @@index([status])
   @@index([profileStatus])
@@ -3259,6 +3262,7 @@ model BisneysJob {
   client        BisneysCompany?       @relation(fields: [companyId], references: [id])
   candidateJobs BisneysCandidateJob[]
   jobServices   BisneysJobService[]
+  applications  BisneysCandidateApplication[]
 
   @@index([professionId])
   @@index([companyId])
@@ -5036,4 +5040,186 @@ model BisneysCandidatePreference {
   candidate BisneysCandidate @relation(fields: [candidateId], references: [id])
 
   @@map("bisneys_candidate_preferences")
+}
+
+// =============================================================
+// BISNEYS CRM — Candidate DB Faza 4: recruitment process
+// Applications (separate status machine), contact attempts, interviews.
+// =============================================================
+
+enum BisneysApplicationStatus {
+  APPLIED
+  NEW
+  UNDER_REVIEW
+  CONTACT_ATTEMPTED
+  CONTACTED
+  SCREENING_SCHEDULED
+  SCREENING_CONFIRMED
+  SCREENING_COMPLETED
+  QUALIFIED
+  NOT_QUALIFIED
+  SENT_TO_CLIENT
+  CLIENT_REVIEW
+  CLIENT_INTERVIEW
+  OFFER_PENDING
+  OFFERED
+  HIRED
+  REJECTED
+  WITHDRAWN
+  ON_HOLD
+  NO_RESPONSE
+  NO_SHOW
+  CLOSED
+}
+
+enum BisneysInterviewStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+  RESCHEDULED
+}
+
+enum BisneysInterviewType {
+  PHONE_SCREEN
+  VIDEO_INTERVIEW
+  IN_PERSON_INTERVIEW
+  TECHNICAL_INTERVIEW
+  CLIENT_INTERVIEW
+  FOLLOW_UP_INTERVIEW
+  OTHER
+}
+
+enum BisneysContactChannel {
+  CALL
+  SMS
+  WHATSAPP
+  EMAIL
+  LINKEDIN
+  IN_PERSON
+  OTHER
+}
+
+enum BisneysContactOutcome {
+  ANSWERED
+  NO_ANSWER
+  BUSY
+  CALL_BACK
+  WRONG_NUMBER
+  UNREACHABLE
+  INTERESTED
+  NOT_INTERESTED
+  SCHEDULED_INTERVIEW
+  LEFT_MESSAGE
+}
+
+model BisneysCandidateApplication {
+  id               String                   @id @default(cuid())
+  candidateId      String
+  jobId            String?
+  companyId        String?
+  campaign         String?
+  source           BisneysCandidateSource?
+  recruiterId      String?
+  status           BisneysApplicationStatus @default(NEW)
+  statusReason     String?
+  rejectionReason  String?
+  withdrawalReason String?
+  appliedAt        DateTime                 @default(now())
+  closedAt         DateTime?
+  note             String?
+  externalRef      String?
+  createdById      String?
+  deletedAt        DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  candidate BisneysCandidate              @relation(fields: [candidateId], references: [id])
+  job       BisneysJob?                   @relation(fields: [jobId], references: [id])
+  history   BisneysApplicationStatusHistory[]
+
+  @@index([candidateId])
+  @@index([jobId])
+  @@index([status])
+  @@index([appliedAt])
+  @@map("bisneys_candidate_applications")
+}
+
+model BisneysApplicationStatusHistory {
+  id            String   @id @default(cuid())
+  applicationId String
+  fromStatus    String?
+  toStatus      String
+  changedById   String?
+  note          String?
+  createdAt     DateTime @default(now())
+
+  application BisneysCandidateApplication @relation(fields: [applicationId], references: [id])
+
+  @@index([applicationId])
+  @@map("bisneys_application_status_history")
+}
+
+model BisneysContactAttempt {
+  id            String                 @id @default(cuid())
+  candidateId   String
+  applicationId String?
+  channel       BisneysContactChannel
+  outcome       BisneysContactOutcome?
+  byUserId      String?
+  note          String?
+  nextStep      String?
+  followUpAt    DateTime?
+  createdAt     DateTime               @default(now())
+
+  candidate BisneysCandidate @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId, createdAt])
+  @@map("bisneys_contact_attempts")
+}
+
+model BisneysInterview {
+  id            String                 @id @default(cuid())
+  candidateId   String
+  applicationId String?
+  jobId         String?
+  companyId     String?
+  type          BisneysInterviewType   @default(PHONE_SCREEN)
+  status        BisneysInterviewStatus @default(SCHEDULED)
+  scheduledAt   DateTime?
+  confirmed     Boolean                @default(false)
+  confirmedAt   DateTime?
+  attended      Boolean?
+  arrivedAt     DateTime?
+  locationOrLink String?
+  recruiterId   String?
+  outcome       String?
+  notes         String?
+  nextStep      String?
+  deletedAt     DateTime?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  candidate BisneysCandidate                @relation(fields: [candidateId], references: [id])
+  history   BisneysInterviewStatusHistory[]
+
+  @@index([candidateId, scheduledAt])
+  @@index([status])
+  @@map("bisneys_interviews")
+}
+
+model BisneysInterviewStatusHistory {
+  id          String   @id @default(cuid())
+  interviewId String
+  fromStatus  String?
+  toStatus    String
+  changedById String?
+  note        String?
+  createdAt   DateTime @default(now())
+
+  interview BisneysInterview @relation(fields: [interviewId], references: [id])
+
+  @@index([interviewId])
+  @@map("bisneys_interview_status_history")
 }

@@ -1,7 +1,38 @@
 import type {
   BisneysCandidateProfileStatus, BisneysEducationLevel, BisneysAvailabilityStatus,
   BisneysRelocationPreference, BisneysExperienceLevel, BisneysLanguageLevel, BisneysCandidateSource,
+  BisneysApplicationStatus, BisneysInterviewStatus, BisneysInterviewType, BisneysContactChannel, BisneysContactOutcome,
 } from "@/generated/prisma/client";
+
+export const APPLICATION_STATUS_LABELS: Record<BisneysApplicationStatus, string> = {
+  APPLIED: "Prijavljen", NEW: "Novo", UNDER_REVIEW: "U pregledu", CONTACT_ATTEMPTED: "Pokušan kontakt",
+  CONTACTED: "Kontaktiran", SCREENING_SCHEDULED: "Screening zakazan", SCREENING_CONFIRMED: "Screening potvrđen",
+  SCREENING_COMPLETED: "Screening obavljen", QUALIFIED: "Kvalificiran", NOT_QUALIFIED: "Nije kvalificiran",
+  SENT_TO_CLIENT: "Poslan klijentu", CLIENT_REVIEW: "Klijent pregledava", CLIENT_INTERVIEW: "Intervju kod klijenta",
+  OFFER_PENDING: "Ponuda u pripremi", OFFERED: "Ponuda poslana", HIRED: "Zaposlen", REJECTED: "Odbijen",
+  WITHDRAWN: "Odustao", ON_HOLD: "Na čekanju", NO_RESPONSE: "Bez odgovora", NO_SHOW: "Nije došao", CLOSED: "Zatvoreno",
+};
+export const APPLICATION_STATUS_VALUES = Object.keys(APPLICATION_STATUS_LABELS) as BisneysApplicationStatus[];
+
+export const INTERVIEW_STATUS_LABELS: Record<BisneysInterviewStatus, string> = {
+  SCHEDULED: "Zakazan", CONFIRMED: "Potvrđen", COMPLETED: "Održan", NO_SHOW: "Nije došao", CANCELLED: "Otkazan", RESCHEDULED: "Pomaknut",
+};
+export const INTERVIEW_TYPE_LABELS: Record<BisneysInterviewType, string> = {
+  PHONE_SCREEN: "Telefonski screening", VIDEO_INTERVIEW: "Video intervju", IN_PERSON_INTERVIEW: "Intervju uživo",
+  TECHNICAL_INTERVIEW: "Tehnički intervju", CLIENT_INTERVIEW: "Intervju kod klijenta", FOLLOW_UP_INTERVIEW: "Follow-up intervju", OTHER: "Ostalo",
+};
+export const INTERVIEW_TYPE_VALUES = Object.keys(INTERVIEW_TYPE_LABELS) as BisneysInterviewType[];
+
+export const CONTACT_CHANNEL_LABELS: Record<BisneysContactChannel, string> = {
+  CALL: "Poziv", SMS: "SMS", WHATSAPP: "WhatsApp", EMAIL: "Email", LINKEDIN: "LinkedIn", IN_PERSON: "Uživo", OTHER: "Ostalo",
+};
+export const CONTACT_CHANNEL_VALUES = Object.keys(CONTACT_CHANNEL_LABELS) as BisneysContactChannel[];
+
+export const CONTACT_OUTCOME_LABELS: Record<BisneysContactOutcome, string> = {
+  ANSWERED: "Javio se", NO_ANSWER: "Nije se javio", BUSY: "Zauzeto", CALL_BACK: "Nazvati ponovno", WRONG_NUMBER: "Krivi broj",
+  UNREACHABLE: "Nedostupan", INTERESTED: "Zainteresiran", NOT_INTERESTED: "Nije zainteresiran", SCHEDULED_INTERVIEW: "Dogovoren razgovor", LEFT_MESSAGE: "Ostavljena poruka",
+};
+export const CONTACT_OUTCOME_VALUES = Object.keys(CONTACT_OUTCOME_LABELS) as BisneysContactOutcome[];
 
 /** Croatian labels for the candidate-database enums (brief §5–15). */
 
