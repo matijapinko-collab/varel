@@ -93,7 +93,7 @@ export default async function SuperadminDashboard() {
         <AdminTable headers={["Tvrtka", "OIB", "Vlasnik", "Paket", "Korisnici", "Status", "Onboarding", "Kreirano"]} empty={tenants.length === 0}>
           {tenants.map((t) => (
             <tr key={t.id}>
-              <td className="px-3 py-2.5 font-medium">{t.name}<div className="text-xs text-muted">/{t.slug}</div></td>
+              <td className="px-3 py-2.5 font-medium"><a href={`/hvac/superadministracija/tvrtke/${t.id}`} className="hover:text-sky-600 dark:hover:text-sky-300">{t.name}</a><div className="text-xs text-muted">/{t.slug}</div></td>
               <td className="px-3 py-2.5 text-sm text-muted">{t.oib ?? "—"}</td>
               <td className="px-3 py-2.5 text-sm text-muted">{t.members[0]?.user.email ?? "—"}</td>
               <td className="px-3 py-2.5 text-sm">{PLAN_CONFIG[t.plan].name.replace("Varel ", "")}</td>
