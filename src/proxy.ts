@@ -81,6 +81,27 @@ export function proxy(request: NextRequest) {
     return noIndex(NextResponse.next());
   }
 
+  // Varel Electric: /electro public marketing pages are indexable Croatian
+  // pages outside the locale scheme; the app and superadministration are
+  // cookie-gated optimistically here and noindexed. Real authorization happens
+  // in the layouts, guards and every server action (defense in depth).
+  if (pathname === "/electro" || pathname.startsWith("/electro/")) {
+    if (pathname.startsWith("/electro/superadministracija")) {
+      const isLogin = pathname === "/electro/superadministracija/prijava";
+      if (!isLogin && !request.cookies.has("electro_sa_session")) {
+        return noIndex(NextResponse.redirect(new URL("/electro/superadministracija/prijava", request.url)));
+      }
+      return noIndex(NextResponse.next());
+    }
+    if (pathname.startsWith("/electro/app")) {
+      if (!request.cookies.has("electro_session")) {
+        return noIndex(NextResponse.redirect(new URL("/electro/prijava", request.url)));
+      }
+      return noIndex(NextResponse.next());
+    }
+    return NextResponse.next();
+  }
+
   // HVAC superadministration: never indexed. Real authorization happens in the
   // page guards (requireSuperadmin) — this only adds the header layer.
   if (isNoIndexPath(pathname)) return noIndex(NextResponse.next());

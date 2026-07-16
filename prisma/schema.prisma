@@ -3600,3 +3600,1066 @@ model BisneysTrelloSyncLog {
   @@index([startedAt])
   @@map("bisneys_trello_sync_logs")
 }
+
+// ═══════════════════════════════ VAREL ELECTRIC ═══════════════════════════════
+// Multi-tenant SaaS for electrical-installation companies, served at /electro.
+// All models are prefixed Electro* → tables electro_* (same embedding pattern as
+// Bisneys CRM / HVAC). Every tenant-owned row carries companyId; isolation is
+// enforced in server guards and actions, never only in the UI (brief §3, §69).
+
+/// Subscription lifecycle (brief §5). PENDING_APPROVAL until a Varel superadmin
+/// manually approves the company; only then does the 10-day trial start.
+enum ElectroSubscriptionStatus {
+  PENDING_APPROVAL
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum ElectroUserStatus {
+  INVITED
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+model ElectroCompany {
+  id           String  @id @default(cuid())
+  name         String
+  oib          String?
+  address      String?
+  city         String?
+  country      String? @default("Hrvatska")
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  /// Superadmin-only notes (approval diligence, support history).
+  internalNotes String?
+  isArchived   Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users        ElectroUser[]
+  subscription ElectroCompanySubscription?
+  invites      ElectroInvite[]
+  userRoles    ElectroUserRole[]
+  branches     ElectroBranch[]
+  departments  ElectroDepartment[]
+  investors    ElectroInvestor[]
+  projects     ElectroProject[]
+  documents    ElectroDocument[]
+  photos       ElectroPhoto[]
+  tasks        ElectroTask[]
+  dailyLogs    ElectroDailyLog[]
+  issues       ElectroIssue[]
+  warehouses   ElectroWarehouse[]
+  items        ElectroItem[]
+  movements    ElectroStockMovement[]
+  consumptions ElectroMaterialConsumption[]
+  costs        ElectroProjectCost[]
+  reports      ElectroReport[]
+
+  @@map("electro_companies")
+}
+
+/// Packages (brief §5). Names/prices/limits are DATA, editable from the
+/// superadministration without code changes — never hardcode them in frontend.
+model ElectroSubscriptionPlan {
+  id              String   @id @default(cuid())
+  key             String   @unique // "basic" | "professional" | "business" | "enterprise"
+  name            String
+  description     String?
+  priceMonthlyEur Decimal? @db.Decimal(10, 2)
+  isEnterprise    Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  trialDays       Int      @default(10)
+
+  limits        ElectroPlanLimit[]
+  subscriptions ElectroCompanySubscription[]
+
+  @@map("electro_subscription_plans")
+}
+
+/// Configurable per-plan limits (brief §5): numeric (maxActiveProjects,
+/// maxUsers, storageMb, …) or feature flags (investorPortal, apiAccess, …).
+/// Enforced on the backend; the frontend only mirrors them.
+model ElectroPlanLimit {
+  id        String  @id @default(cuid())
+  planId    String
+  key       String
+  intValue  Int?
+  boolValue Boolean?
+
+  plan ElectroSubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, key])
+  @@map("electro_plan_limits")
+}
+
+model ElectroCompanySubscription {
+  id              String                    @id @default(cuid())
+  companyId       String                    @unique
+  planId          String
+  status          ElectroSubscriptionStatus @default(PENDING_APPROVAL)
+  requestedAt     DateTime                  @default(now())
+  approvedAt      DateTime?
+  /// ElectroSuperadmin.id — plain reference, superadmins are global accounts.
+  approvedById    String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  trialStartsAt   DateTime?
+  trialEndsAt     DateTime?
+  suspendedAt     DateTime?
+  suspensionReason String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  company ElectroCompany          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan    ElectroSubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([status])
+  @@map("electro_company_subscriptions")
+}
+
+model ElectroUser {
+  id                 String            @id @default(cuid())
+  companyId          String
+  firstName          String
+  lastName           String
+  email              String            @unique
+  phone              String?
+  jobTitle           String?
+  /// Null until the invite is accepted and the user sets their own password.
+  passwordHash       String?
+  status             ElectroUserStatus @default(INVITED)
+  mustChangePassword Boolean           @default(false)
+  sessionVersion     Int               @default(0)
+  lastLoginAt        DateTime?
+  archivedAt         DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  company        ElectroCompany          @relation(fields: [companyId], references: [id])
+  roles          ElectroUserRole[]
+  invites        ElectroInvite[]
+  branches       ElectroUserBranch[]
+  departments    ElectroUserDepartment[]
+  projectMembers ElectroProjectMember[]
+
+  @@index([companyId])
+  @@map("electro_users")
+}
+
+/// RBAC (brief §7): roles are rows, not a single enum column, because one
+/// person can hold several roles (e.g. engineer + admin). System roles are
+/// seeded: ADMIN, ENGINEER, SITE_MANAGER, ELECTRICIAN. Permission granularity
+/// and per-project overrides (ProjectMembership) arrive with later phases.
+model ElectroRole {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  name        String
+  description String?
+  isSystem    Boolean @default(true)
+
+  userRoles   ElectroUserRole[]
+  permissions ElectroRolePermission[]
+
+  @@map("electro_roles")
+}
+
+model ElectroPermission {
+  id   String @id @default(cuid())
+  key  String @unique
+  name String
+
+  roles ElectroRolePermission[]
+
+  @@map("electro_permissions")
+}
+
+model ElectroRolePermission {
+  roleId       String
+  permissionId String
+
+  role       ElectroRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission ElectroPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("electro_role_permissions")
+}
+
+model ElectroUserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  companyId String
+  createdAt DateTime @default(now())
+
+  user    ElectroUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role    ElectroRole    @relation(fields: [roleId], references: [id])
+  company ElectroCompany @relation(fields: [companyId], references: [id])
+
+  @@unique([userId, roleId])
+  @@index([companyId])
+  @@map("electro_user_roles")
+}
+
+/// Single-use, expiring password-setup invites (brief §9). Only the SHA-256
+/// hash of the token is stored; the raw token exists only in the emailed link.
+model ElectroInvite {
+  id                   String    @id @default(cuid())
+  tokenHash            String    @unique
+  userId               String
+  companyId            String
+  invitedByUserId      String?
+  invitedBySuperadminId String?
+  expiresAt            DateTime
+  usedAt               DateTime?
+  createdAt            DateTime  @default(now())
+
+  user    ElectroUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company ElectroCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("electro_invites")
+}
+
+/// Global Varel Electric superadmins (brief §8) — platform staff, NOT company
+/// employees. Own table, own session cookie, own guards.
+model ElectroSuperadmin {
+  id                 String    @id @default(cuid())
+  username           String    @unique
+  email              String    @unique
+  passwordHash       String
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  sessionVersion     Int       @default(0)
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@map("electro_superadmins")
+}
+
+/// Append-only audit trail (brief §60). Users can never edit it.
+model ElectroAuditLog {
+  id           String   @id @default(cuid())
+  companyId    String?
+  userId       String?
+  superadminId String?
+  action       String
+  entityType   String?
+  entityId     String?
+  beforeJson   Json?
+  afterJson    Json?
+  ipHash       String?
+  userAgent    String?
+  requestId    String?
+  createdAt    DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@map("electro_audit_logs")
+}
+
+/// Organisational structure (brief §6): a company can have several branches
+/// and departments; a user can belong to one or more of each. Membership never
+/// implies project access by itself (that is Phase C's ProjectMember).
+model ElectroBranch {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  city      String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company  ElectroCompany      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  members  ElectroUserBranch[]
+  projects ElectroProject[]
+
+  @@index([companyId])
+  @@map("electro_branches")
+}
+
+model ElectroDepartment {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company ElectroCompany          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  members ElectroUserDepartment[]
+
+  @@index([companyId])
+  @@map("electro_departments")
+}
+
+model ElectroUserBranch {
+  userId   String
+  branchId String
+
+  user   ElectroUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch ElectroBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([userId, branchId])
+  @@map("electro_user_branches")
+}
+
+model ElectroUserDepartment {
+  userId       String
+  departmentId String
+
+  user       ElectroUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department ElectroDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, departmentId])
+  @@map("electro_user_departments")
+}
+
+// ─────────────────────────── VAREL ELECTRIC · PHASE C ───────────────────────────
+// Investors, projects, locations, phases, project membership (brief §15–§19).
+
+enum ElectroInvestorType {
+  LEGAL_ENTITY
+  NATURAL_PERSON
+  PUBLIC_BODY
+  FUND
+  GROUP
+}
+
+enum ElectroProjectStatus {
+  DRAFT
+  OFFER
+  APPROVED
+  PREPARATION
+  ACTIVE
+  ON_HOLD
+  WAITING_FOR_INVESTOR
+  TECHNICAL_REVIEW
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum ElectroProjectPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum ElectroPhaseStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  BLOCKED
+  WAITING_FOR_REVIEW
+  CHANGES_REQUIRED
+  APPROVED
+  COMPLETED
+}
+
+/// A location node in the project tree (object → floor → room, etc., brief §18).
+enum ElectroLocationType {
+  SUBPROJECT
+  BUILDING
+  ENTRANCE
+  ZONE
+  FLOOR
+  ROOM
+  TECHNICAL_UNIT
+}
+
+model ElectroInvestor {
+  id           String              @id @default(cuid())
+  companyId    String
+  type         ElectroInvestorType @default(LEGAL_ENTITY)
+  name         String
+  oib          String?
+  address      String?
+  city         String?
+  country      String?             @default("Hrvatska")
+  email        String?
+  phone        String?
+  notes        String?
+  isArchived   Boolean             @default(false)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  company  ElectroCompany           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contacts ElectroInvestorContact[]
+  projects ElectroProjectInvestor[]
+
+  @@index([companyId])
+  @@map("electro_investors")
+}
+
+model ElectroInvestorContact {
+  id         String  @id @default(cuid())
+  investorId String
+  firstName  String
+  lastName   String
+  role       String?
+  email      String?
+  phone      String?
+  createdAt  DateTime @default(now())
+
+  investor ElectroInvestor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+
+  @@index([investorId])
+  @@map("electro_investor_contacts")
+}
+
+model ElectroProject {
+  id                String                 @id @default(cuid())
+  companyId         String
+  code              String
+  name              String
+  description       String?
+  status            ElectroProjectStatus   @default(DRAFT)
+  priority          ElectroProjectPriority @default(NORMAL)
+  branchId          String?
+  location          String?
+  address           String?
+  startDate         DateTime?
+  contractDeadline  DateTime?
+  estimatedDeadline DateTime?
+  actualEndDate     DateTime?
+  contractValue     Decimal?               @db.Decimal(14, 2)
+  plannedBudget     Decimal?               @db.Decimal(14, 2)
+  currency          String                 @default("EUR")
+  completionPercent Int                    @default(0)
+  delayReason       String?
+  isArchived        Boolean                @default(false)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  // Optimistic locking for concurrent edits (brief §70).
+  version           Int                    @default(0)
+
+  company       ElectroCompany            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch        ElectroBranch?            @relation(fields: [branchId], references: [id])
+  investors     ElectroProjectInvestor[]
+  members       ElectroProjectMember[]
+  locations     ElectroProjectLocation[]
+  phases        ElectroProjectPhase[]
+  statusHistory ElectroProjectStatusHistory[]
+  documents     ElectroDocument[]
+  photos        ElectroPhoto[]
+  tasks         ElectroTask[]
+  dailyLogs     ElectroDailyLog[]
+  issues        ElectroIssue[]
+  consumptions  ElectroMaterialConsumption[]
+  budget        ElectroProjectBudget?
+  costs         ElectroProjectCost[]
+  reports       ElectroReport[]
+
+  @@unique([companyId, code])
+  @@index([companyId, status])
+  @@map("electro_projects")
+}
+
+/// Many-to-many: a project can have several investors and vice versa (brief §15).
+model ElectroProjectInvestor {
+  projectId  String
+  investorId String
+  createdAt  DateTime @default(now())
+
+  project  ElectroProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  investor ElectroInvestor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, investorId])
+  @@map("electro_project_investors")
+}
+
+/// Per-project team membership with a project-scoped role (brief §13).
+model ElectroProjectMember {
+  id          String       @id @default(cuid())
+  projectId   String
+  userId      String
+  projectRole String
+  startDate   DateTime?
+  endDate     DateTime?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+
+  project ElectroProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    ElectroUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("electro_project_members")
+}
+
+/// Hierarchical location node (brief §18): parentId points at another node.
+model ElectroProjectLocation {
+  id        String              @id @default(cuid())
+  projectId String
+  parentId  String?
+  type      ElectroLocationType @default(BUILDING)
+  name      String
+  sortOrder Int                 @default(0)
+  createdAt DateTime            @default(now())
+
+  project  ElectroProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent   ElectroProjectLocation?  @relation("ElectroLocationTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children ElectroProjectLocation[] @relation("ElectroLocationTree")
+
+  @@index([projectId])
+  @@map("electro_project_locations")
+}
+
+model ElectroProjectPhase {
+  id                String             @id @default(cuid())
+  projectId         String
+  name              String
+  description       String?
+  sortOrder         Int                @default(0)
+  status            ElectroPhaseStatus @default(NOT_STARTED)
+  startDate         DateTime?
+  endDate           DateTime?
+  contractDeadline  DateTime?
+  progressPercent   Int                @default(0)
+  responsibleUserId String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  project ElectroProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("electro_project_phases")
+}
+
+model ElectroProjectStatusHistory {
+  id        String               @id @default(cuid())
+  projectId String
+  fromStatus ElectroProjectStatus?
+  toStatus  ElectroProjectStatus
+  reason    String?
+  changedByUserId String?
+  createdAt DateTime             @default(now())
+
+  project ElectroProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("electro_project_status_history")
+}
+
+// ─────────────────────────── VAREL ELECTRIC · PHASE D ───────────────────────────
+// Document center with versioning + approval, and work photos (brief §22–§32).
+
+enum ElectroDocCategory {
+  CONTRACT
+  OFFER
+  INVOICE
+  TECHNICAL_DRAWING
+  SCHEME
+  SPECIFICATION
+  SITE_REPORT
+  CERTIFICATE
+  MEASUREMENT
+  HANDOVER
+  OTHER
+}
+
+/// Document lifecycle (brief §23). Only APPROVED is a valid version for work.
+enum ElectroDocStatus {
+  DRAFT
+  UPLOADED
+  UNDER_REVIEW
+  CHANGES_REQUIRED
+  APPROVED
+  REJECTED
+  SUPERSEDED
+  ARCHIVED
+}
+
+/// Visibility (brief §16). Investor/public tiers gate what an investor can see.
+enum ElectroVisibility {
+  INTERNAL
+  PROJECT_TEAM
+  INVESTOR
+  PUBLIC_LINK
+}
+
+/// A logical document; its bytes live in versions (brief §25 — never overwrite).
+model ElectroDocument {
+  id              String             @id @default(cuid())
+  companyId       String
+  projectId       String?
+  phaseId         String?
+  category        ElectroDocCategory @default(OTHER)
+  title           String
+  description     String?
+  status          ElectroDocStatus   @default(DRAFT)
+  visibility      ElectroVisibility  @default(INTERNAL)
+  /// True when this document requires an engineer's approval (brief §24).
+  requiresApproval Boolean           @default(false)
+  currentVersionId String?           @unique
+  isArchived      Boolean            @default(false)
+  createdByUserId String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  company        ElectroCompany           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project        ElectroProject?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  currentVersion ElectroDocumentVersion?  @relation("ElectroCurrentVersion", fields: [currentVersionId], references: [id])
+  versions       ElectroDocumentVersion[] @relation("ElectroDocVersions")
+  approvals      ElectroDocumentApproval[]
+
+  @@index([companyId, projectId])
+  @@map("electro_documents")
+}
+
+model ElectroDocumentVersion {
+  id             String           @id @default(cuid())
+  documentId     String
+  versionLabel   String
+  fileName       String
+  storageKey     String
+  url            String
+  mimeType       String
+  sizeBytes      Int
+  checksum       String?
+  changeNote     String?
+  status         ElectroDocStatus @default(UPLOADED)
+  uploadedByUserId String?
+  approvedByUserId String?
+  approvedAt     DateTime?
+  createdAt      DateTime         @default(now())
+
+  document      ElectroDocument  @relation("ElectroDocVersions", fields: [documentId], references: [id], onDelete: Cascade)
+  currentOf     ElectroDocument? @relation("ElectroCurrentVersion")
+
+  @@index([documentId])
+  @@map("electro_document_versions")
+}
+
+/// One row per approval decision (brief §24). Model supports multi-step later.
+model ElectroDocumentApproval {
+  id          String           @id @default(cuid())
+  documentId  String
+  versionId   String
+  decision    ElectroDocStatus // APPROVED | REJECTED | CHANGES_REQUIRED
+  comment     String?
+  decidedByUserId String?
+  createdAt   DateTime         @default(now())
+
+  document ElectroDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("electro_document_approvals")
+}
+
+/// Work photo (brief §29). Original bytes preserved; metadata is structured.
+model ElectroPhoto {
+  id          String            @id @default(cuid())
+  companyId   String
+  projectId   String
+  locationId  String?
+  phaseId     String?
+  category    String?
+  storageKey  String
+  url         String
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  comment     String?
+  visibility  ElectroVisibility @default(INTERNAL)
+  takenByUserId String?
+  createdAt   DateTime          @default(now())
+
+  company ElectroCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project ElectroProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, projectId])
+  @@map("electro_photos")
+}
+
+// ─────────────────────────── VAREL ELECTRIC · PHASE E ───────────────────────────
+// Tasks, site diary, issues (brief §21, §33, §36).
+
+enum ElectroTaskStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_FOR_MATERIAL
+  BLOCKED
+  WAITING_FOR_REVIEW
+  CHANGES_REQUIRED
+  COMPLETED
+  CANCELLED
+}
+
+enum ElectroTaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum ElectroDailyLogStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  LOCKED
+}
+
+enum ElectroIssueType {
+  TECHNICAL
+  SAFETY
+  MATERIAL_SHORTAGE
+  DRAWING_ERROR
+  EXECUTION_DEVIATION
+  DELAY
+  BLOCKER
+  INVESTOR_REQUEST
+  COMPLAINT
+  QUALITY_DEFECT
+  COMMERCIAL_RISK
+}
+
+enum ElectroIssueStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_FOR_INFORMATION
+  WAITING_FOR_INVESTOR
+  WAITING_FOR_MATERIAL
+  RESOLVED
+  VERIFIED
+  CLOSED
+  REJECTED
+}
+
+model ElectroTask {
+  id            String              @id @default(cuid())
+  companyId     String
+  projectId     String
+  phaseId       String?
+  locationId    String?
+  title         String
+  description   String?
+  status        ElectroTaskStatus   @default(OPEN)
+  priority      ElectroTaskPriority @default(NORMAL)
+  assigneeUserId String?
+  createdByUserId String?
+  dueDate       DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  company   ElectroCompany         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project   ElectroProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  checklist ElectroTaskChecklistItem[]
+
+  @@index([companyId, projectId])
+  @@index([assigneeUserId])
+  @@map("electro_tasks")
+}
+
+model ElectroTaskChecklistItem {
+  id        String   @id @default(cuid())
+  taskId    String
+  text      String
+  isDone    Boolean  @default(false)
+  sortOrder Int      @default(0)
+
+  task ElectroTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("electro_task_checklist_items")
+}
+
+model ElectroDailyLog {
+  id            String                @id @default(cuid())
+  companyId     String
+  projectId     String
+  logDate       DateTime
+  status        ElectroDailyLogStatus @default(DRAFT)
+  workerCount   Int?
+  weather       String?
+  activities    String?
+  notes         String?
+  nextDayPlan   String?
+  authorUserId  String?
+  submittedAt   DateTime?
+  approvedAt    DateTime?
+  lockedAt      DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  company   ElectroCompany              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project   ElectroProject              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revisions ElectroDailyLogRevision[]
+
+  @@index([companyId, projectId, logDate])
+  @@map("electro_daily_logs")
+}
+
+/// Amendment to a locked log (brief §33 — locked logs never change silently).
+model ElectroDailyLogRevision {
+  id           String   @id @default(cuid())
+  dailyLogId   String
+  note         String
+  authorUserId String?
+  createdAt    DateTime @default(now())
+
+  dailyLog ElectroDailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  @@index([dailyLogId])
+  @@map("electro_daily_log_revisions")
+}
+
+model ElectroIssue {
+  id            String             @id @default(cuid())
+  companyId     String
+  projectId     String
+  locationId    String?
+  type          ElectroIssueType   @default(TECHNICAL)
+  status        ElectroIssueStatus @default(OPEN)
+  priority      ElectroTaskPriority @default(NORMAL)
+  title         String
+  description   String?
+  proposedSolution String?
+  actualSolution String?
+  assigneeUserId String?
+  reportedByUserId String?
+  dueDate       DateTime?
+  resolvedAt    DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  company ElectroCompany         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project ElectroProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  comments ElectroIssueComment[]
+
+  @@index([companyId, projectId, status])
+  @@map("electro_issues")
+}
+
+model ElectroIssueComment {
+  id           String   @id @default(cuid())
+  issueId      String
+  body         String
+  authorUserId String?
+  createdAt    DateTime @default(now())
+
+  issue ElectroIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+  @@map("electro_issue_comments")
+}
+
+// ─────────────────────────── VAREL ELECTRIC · PHASE F ───────────────────────────
+// Warehouses, items, immutable stock ledger, consumption with confirmation
+// (brief §37–§48). Stock balance is the SUM of movements, never a mutable field.
+
+enum ElectroWarehouseType {
+  CENTRAL
+  REGIONAL
+  MOBILE
+  SITE
+  TEMPORARY
+  RETURNS
+  DEFECTIVE
+}
+
+enum ElectroStockMovementType {
+  OPENING_BALANCE
+  RECEIPT
+  TRANSFER_OUT
+  TRANSFER_IN
+  ISSUE_TO_PROJECT
+  CONSUMPTION_CONFIRMED
+  RETURN_FROM_PROJECT
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  DAMAGE
+  LOSS
+  WRITE_OFF
+  ERP_IMPORT
+}
+
+enum ElectroConsumptionStatus {
+  DRAFT
+  PENDING_CONFIRMATION
+  PARTIALLY_CONFIRMED
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+model ElectroWarehouse {
+  id           String               @id @default(cuid())
+  companyId    String
+  code         String
+  name         String
+  type         ElectroWarehouseType @default(CENTRAL)
+  address      String?
+  branchId     String?
+  isActive     Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  company      ElectroCompany     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  movements    ElectroStockMovement[]
+  consumptions ElectroMaterialConsumption[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("electro_warehouses")
+}
+
+model ElectroItem {
+  id            String   @id @default(cuid())
+  companyId     String
+  sku           String
+  externalSku   String?
+  name          String
+  description   String?
+  category      String?
+  unit          String   @default("kom")
+  barcode       String?
+  purchasePrice Decimal? @db.Decimal(12, 4)
+  minStock      Decimal? @db.Decimal(14, 3)
+  targetStock   Decimal? @db.Decimal(14, 3)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company      ElectroCompany         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  movements    ElectroStockMovement[]
+  consumptions ElectroMaterialConsumption[]
+
+  @@unique([companyId, sku])
+  @@index([companyId])
+  @@map("electro_items")
+}
+
+/// The immutable ledger (brief §40). Positive qtyDelta adds to the warehouse,
+/// negative removes. Balance = SUM(qtyDelta) per (item, warehouse). Rows are
+/// never updated or deleted; corrections are new movements.
+model ElectroStockMovement {
+  id          String                   @id @default(cuid())
+  companyId   String
+  itemId      String
+  warehouseId String
+  type        ElectroStockMovementType
+  qtyDelta    Decimal                  @db.Decimal(14, 3)
+  unitPrice   Decimal?                 @db.Decimal(12, 4)
+  projectId   String?
+  reason      String?
+  reference   String?
+  createdByUserId String?
+  createdAt   DateTime                 @default(now())
+
+  company   ElectroCompany   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  item      ElectroItem      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  warehouse ElectroWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, itemId, warehouseId])
+  @@map("electro_stock_movements")
+}
+
+/// Consumption reported by a worker (brief §41). Not final until confirmed by a
+/// site manager; only then does a CONSUMPTION_CONFIRMED movement post.
+model ElectroMaterialConsumption {
+  id            String                   @id @default(cuid())
+  companyId     String
+  projectId     String
+  itemId        String
+  warehouseId   String
+  phaseId       String?
+  locationId    String?
+  quantity      Decimal                  @db.Decimal(14, 3)
+  confirmedQuantity Decimal?             @db.Decimal(14, 3)
+  status        ElectroConsumptionStatus @default(PENDING_CONFIRMATION)
+  comment       String?
+  reportedByUserId String?
+  confirmedByUserId String?
+  confirmedAt   DateTime?
+  movementId    String?                  @unique
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  company   ElectroCompany   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project   ElectroProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  item      ElectroItem      @relation(fields: [itemId], references: [id])
+  warehouse ElectroWarehouse @relation(fields: [warehouseId], references: [id])
+
+  @@index([companyId, projectId, status])
+  @@map("electro_material_consumptions")
+}
+
+// ─────────────────────────── VAREL ELECTRIC · PHASE G ───────────────────────────
+// Project budget & costs, generated reports (brief §45–§48, §34–§35).
+
+enum ElectroCostCategory {
+  MATERIAL
+  LABOR
+  SUBCONTRACTOR
+  EQUIPMENT_RENTAL
+  TRANSPORT
+  ADMINISTRATION
+  EXTRA_WORK
+  OTHER
+}
+
+model ElectroProjectBudget {
+  id             String   @id @default(cuid())
+  projectId      String   @unique
+  materialBudget Decimal? @db.Decimal(14, 2)
+  laborBudget    Decimal? @db.Decimal(14, 2)
+  subcontractorBudget Decimal? @db.Decimal(14, 2)
+  otherBudget    Decimal? @db.Decimal(14, 2)
+  reserve        Decimal? @db.Decimal(14, 2)
+  updatedAt      DateTime @updatedAt
+
+  project ElectroProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("electro_project_budgets")
+}
+
+model ElectroProjectCost {
+  id          String              @id @default(cuid())
+  companyId   String
+  projectId   String
+  category    ElectroCostCategory @default(OTHER)
+  description String
+  amount      Decimal             @db.Decimal(14, 2)
+  incurredOn  DateTime            @default(now())
+  createdByUserId String?
+  createdAt   DateTime            @default(now())
+
+  company ElectroCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project ElectroProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, projectId])
+  @@map("electro_project_costs")
+}
+
+model ElectroReport {
+  id          String   @id @default(cuid())
+  companyId   String
+  projectId   String
+  title       String
+  kind        String   // "weekly" | "monthly" | "progress" | ...
+  periodFrom  DateTime?
+  periodTo    DateTime?
+  html        String   // generated report body (HTML), stored as a version
+  createdByUserId String?
+  createdAt   DateTime @default(now())
+
+  company ElectroCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project ElectroProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, projectId])
+  @@map("electro_reports")
+}
