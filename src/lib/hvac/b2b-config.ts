@@ -1,7 +1,7 @@
 import type {
   HvacPlan, HvacContractTerm, HvacRole, HvacAppointmentStatus, HvacWorkOrderStatus,
   HvacInvoiceStatus, HvacQuoteStatus, HvacReminderStatus, HvacInquiryStatus,
-  HvacUnitStatus, HvacPriority,
+  HvacUnitStatus, HvacPriority, HvacSource, HvacCustomerType, HvacUnitType,
 } from "@/generated/prisma/client";
 import { hvacPricing } from "./content";
 
@@ -150,6 +150,43 @@ export const PRIORITY: Record<HvacPriority, StatusDef> = {
   HIGH: { label: "Visoko", tone: "warn" },
   URGENT: { label: "Hitno", tone: "danger" },
 };
+
+/* ---------------- customers / units labels ---------------- */
+
+export const SOURCE_LABELS: Record<HvacSource, string> = {
+  HOSTED_BOOKING: "Varel booking",
+  PHONE: "Telefon",
+  EMAIL: "E-mail",
+  WEBSITE: "Web-stranica",
+  SOCIAL: "Društvene mreže",
+  RECOMMENDATION: "Preporuka",
+  EXISTING_CUSTOMER: "Postojeći klijent",
+  MANUAL: "Ručni unos",
+  OTHER: "Ostalo",
+};
+
+export const CUSTOMER_TYPE_LABELS: Record<HvacCustomerType, string> = {
+  INDIVIDUAL: "Fizička osoba",
+  COMPANY: "Tvrtka",
+};
+
+export const UNIT_TYPE_LABELS: Record<HvacUnitType, string> = {
+  SPLIT: "Split",
+  MULTI_SPLIT: "Multi-split",
+  PORTABLE: "Prijenosni",
+  CASSETTE: "Kazetni",
+  DUCTED: "Kanalni",
+  FLOOR: "Podni",
+  ROOFTOP: "Krovni",
+  HEAT_PUMP: "Dizalica topline",
+  OTHER: "Ostalo",
+};
+
+/** Human name for a customer (individual or company). */
+export function customerDisplayName(c: { type: HvacCustomerType; firstName?: string | null; lastName?: string | null; companyName?: string | null }): string {
+  if (c.type === "COMPANY") return c.companyName || [c.firstName, c.lastName].filter(Boolean).join(" ") || "Tvrtka";
+  return [c.firstName, c.lastName].filter(Boolean).join(" ") || c.companyName || "Klijent";
+}
 
 /* ---------------- default services (onboarding) ---------------- */
 
