@@ -17,7 +17,7 @@ import {
 const PUBLIC_FILE = /\.[^/]+$/;
 
 /** Administration surfaces that must never be indexed, at any depth. */
-const NOINDEX_PREFIXES = ["/administracija", "/hvac/superadministracija"];
+const NOINDEX_PREFIXES = ["/administracija", "/hvac/superadministracija", "/bisneyscrm"];
 
 function isNoIndexPath(pathname: string): boolean {
   return NOINDEX_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -66,6 +66,17 @@ export function proxy(request: NextRequest) {
       const url = new URL("/administracija", request.url);
       url.searchParams.set("callbackUrl", pathname);
       return noIndex(NextResponse.redirect(url));
+    }
+    return noIndex(NextResponse.next());
+  }
+
+  // Bisneys CRM: isolated internal app under /bisneyscrm. Never indexed; skips
+  // locale routing; optimistic session-cookie guard. Real authorization happens
+  // in the (app) layout and in every server action (defense in depth).
+  if (pathname === "/bisneyscrm" || pathname.startsWith("/bisneyscrm/")) {
+    const isPublic = pathname === "/bisneyscrm" || pathname === "/bisneyscrm/login";
+    if (!isPublic && !request.cookies.has("bisneys_session")) {
+      return noIndex(NextResponse.redirect(new URL("/bisneyscrm/login", request.url)));
     }
     return noIndex(NextResponse.next());
   }

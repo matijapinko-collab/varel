@@ -1,0 +1,387 @@
+import "server-only";
+import { db } from "@/lib/db";
+import type { Prisma, BisneysSalesStatus, BisneysActivityType } from "@/generated/prisma/client";
+import { trello, type TrelloActionDto, type TrelloCardDto, type TrelloCreds } from "./client";
+import { getConnection, getCreds, setStatus, updateConnection } from "./connection";
+import { defaultStatusForListName } from "./mapping";
+import { commentActivityType, isCallComment } from "./activities";
+
+/**
+ * Trello → Bisneys sync (brief §16–18). Pulls board/list/card/member data into
+ * the local bisneys_trello_* tables, maps cards onto domain entities
+ * (sales board → Company, delivery boards → Candidate; the adapter boundary
+ * from brief §4/§67), and normalizes the Trello action history into
+ * BisneysActivity. Every action is processed idempotently, keyed by the Trello
+ * action id (brief §17: no duplicate events), so initial sync, reconciliation
+ * and webhooks can all run the same processor safely.
+ */
+
+type BoardKind = "sales" | "delivery";
+
+function actionKind(boardKind: BoardKind) {
+  return boardKind === "sales" ? "COMPANY" : "CANDIDATE";
+}
+
+/* ---------------- entity mapping (adapter) ---------------- */
+
+async function listMappedStatus(listId: string | null | undefined): Promise<BisneysSalesStatus | null> {
+  if (!listId) return null;
+  const list = await db.bisneysTrelloList.findUnique({ where: { externalId: listId }, select: { mappedStatus: true } });
+  return list?.mappedStatus ?? null;
+}
+
+async function ensureCompanyFromCard(card: { id: string; name?: string }, status?: BisneysSalesStatus | null): Promise<string> {
+  const existing = await db.bisneysCompany.findFirst({ where: { externalId: card.id }, select: { id: true } });
+  if (existing) {
+    if (status) await db.bisneysCompany.update({ where: { id: existing.id }, data: { status, lastActivityAt: new Date() } });
+    return existing.id;
+  }
+  const created = await db.bisneysCompany.create({
+    data: {
+      name: card.name?.trim() || "(bez naziva)",
+      status: status ?? "NEW_COMPANY",
+      externalId: card.id,
+      externalSource: "TRELLO",
+      syncStatus: "SYNCED",
+      lastSyncedAt: new Date(),
+      lastActivityAt: new Date(),
+    },
+  });
+  return created.id;
+}
+
+async function ensureCandidateFromCard(card: { id: string; name?: string }): Promise<string> {
+  const existing = await db.bisneysCandidate.findFirst({ where: { externalId: card.id }, select: { id: true } });
+  if (existing) return existing.id;
+  const person = await db.bisneysPerson.create({
+    data: {
+      fullName: card.name?.trim() || "(bez imena)",
+      externalId: card.id,
+      externalSource: "TRELLO",
+      source: "TRELLO",
+    },
+  });
+  const created = await db.bisneysCandidate.create({
+    data: {
+      personId: person.id,
+      status: "NEW",
+      externalId: card.id,
+      externalSource: "TRELLO",
+      syncStatus: "SYNCED",
+      lastSyncedAt: new Date(),
+    },
+  });
+  return created.id;
+}
+
+/* ---------------- action normalization ---------------- */
+
+/** Claims a Trello action id; returns false if it was already processed. */
+async function claimAction(action: TrelloActionDto, boardId: string | null): Promise<boolean> {
+  try {
+    await db.bisneysTrelloWebhookEvent.create({
+      data: {
+        externalId: action.id,
+        boardId,
+        type: action.type,
+        payloadJson: action as unknown as Prisma.InputJsonValue,
+        processed: false,
+      },
+    });
+    return true;
+  } catch {
+    return false; // unique violation → already seen
+  }
+}
+
+async function markProcessed(actionId: string, error?: string): Promise<void> {
+  try {
+    await db.bisneysTrelloWebhookEvent.updateMany({
+      where: { externalId: actionId },
+      data: { processed: !error, error: error ?? null, processedAt: new Date() },
+    });
+  } catch {
+    /* best effort */
+  }
+}
+
+/**
+ * Processes a single Trello action into a normalized activity (+ entity update).
+ * Idempotent: a second delivery of the same action id is a no-op.
+ */
+export async function processTrelloAction(action: TrelloActionDto, boardKind: BoardKind): Promise<"processed" | "skipped"> {
+  const data = action.data ?? {};
+  const board = (data.board as { id?: string } | undefined) ?? undefined;
+  const boardId = board?.id ?? null;
+
+  if (!(await claimAction(action, boardId))) return "skipped";
+
+  try {
+    const card = data.card as { id?: string; name?: string } | undefined;
+    const cardId = card?.id;
+    const actorName = action.memberCreator?.fullName ?? action.memberCreator?.username ?? null;
+    const actorMemberId = action.idMemberCreator ?? null;
+    const entityType = actionKind(boardKind);
+
+    let type: BisneysActivityType | null = null;
+    let oldValue: string | null = null;
+    let newValue: string | null = null;
+    let companyId: string | null = null;
+    let candidateId: string | null = null;
+    let listId: string | null = (data.list as { id?: string } | undefined)?.id ?? null;
+
+    const bindEntity = async (status?: BisneysSalesStatus | null) => {
+      if (!cardId) return;
+      if (boardKind === "sales") companyId = await ensureCompanyFromCard({ id: cardId, name: card?.name }, status);
+      else candidateId = await ensureCandidateFromCard({ id: cardId, name: card?.name });
+    };
+
+    switch (action.type) {
+      case "createCard": {
+        type = boardKind === "sales" ? "COMPANY_CREATED" : "CANDIDATE_CREATED";
+        const status = await listMappedStatus((data.list as { id?: string } | undefined)?.id);
+        await bindEntity(status);
+        break;
+      }
+      case "updateCard": {
+        const listAfter = data.listAfter as { id?: string; name?: string } | undefined;
+        const listBefore = data.listBefore as { id?: string; name?: string } | undefined;
+        const old = data.old as { name?: string; due?: string | null } | undefined;
+        if (listAfter && listBefore) {
+          type = "CARD_MOVED";
+          oldValue = listBefore.name ?? null;
+          newValue = listAfter.name ?? null;
+          listId = listAfter.id ?? listId;
+          await bindEntity(await listMappedStatus(listAfter.id));
+        } else if (old && "due" in old) {
+          type = "DUE_DATE_CHANGED";
+          await bindEntity();
+        } else {
+          type = boardKind === "sales" ? "COMPANY_UPDATED" : "CANDIDATE_UPDATED";
+          if (old?.name) oldValue = old.name;
+          await bindEntity();
+        }
+        break;
+      }
+      case "commentCard": {
+        const text = String((data as { text?: string }).text ?? "");
+        type = commentActivityType(text);
+        await bindEntity();
+        if (cardId) {
+          await db.bisneysComment.create({
+            data: {
+              body: text,
+              authorName: actorName,
+              authorMemberId: actorMemberId,
+              source: "TRELLO",
+              externalId: action.id,
+              companyId,
+              candidateId,
+            },
+          });
+          if (isCallComment(text)) {
+            await db.bisneysCall.create({
+              data: { note: text, byMemberId: actorMemberId, source: "TRELLO", companyId, candidateId },
+            });
+          }
+        }
+        break;
+      }
+      case "addAttachmentToCard":
+        type = "DOCUMENT_UPLOADED";
+        await bindEntity();
+        break;
+      case "addMemberToCard":
+        type = "CONTACT_ADDED";
+        await bindEntity();
+        break;
+      default:
+        // Stored as a raw event for debugging, but produces no activity.
+        await markProcessed(action.id);
+        return "processed";
+    }
+
+    await db.bisneysActivity.create({
+      data: {
+        type,
+        source: "TRELLO",
+        actorName,
+        actorMemberId,
+        entityType,
+        entityId: companyId ?? candidateId ?? cardId ?? undefined,
+        companyId,
+        candidateId,
+        oldValue,
+        newValue,
+        trelloCardId: cardId ?? null,
+        boardId,
+        listId,
+        occurredAt: action.date ? new Date(action.date) : new Date(),
+      },
+    });
+
+    await markProcessed(action.id);
+    return "processed";
+  } catch (e) {
+    await markProcessed(action.id, (e as Error).message.slice(0, 300));
+    return "processed";
+  }
+}
+
+/* ---------------- board data sync ---------------- */
+
+async function syncBoardData(creds: TrelloCreds, boardId: string, boardKind: BoardKind): Promise<void> {
+  const [lists, members, cards] = await Promise.all([
+    trello.boardLists(creds, boardId),
+    trello.boardMembers(creds, boardId),
+    trello.boardCards(creds, boardId),
+  ]);
+
+  for (const l of lists) {
+    const existing = await db.bisneysTrelloList.findUnique({ where: { externalId: l.id }, select: { mappedStatus: true } });
+    const mappedStatus = existing?.mappedStatus ?? (boardKind === "sales" ? defaultStatusForListName(l.name) : null);
+    await db.bisneysTrelloList.upsert({
+      where: { externalId: l.id },
+      create: { externalId: l.id, boardId, name: l.name, position: l.pos ?? null, mappedStatus },
+      update: { name: l.name, position: l.pos ?? null, mappedStatus },
+    });
+  }
+
+  for (const m of members) {
+    await db.bisneysTrelloMember.upsert({
+      where: { externalId: m.id },
+      create: { externalId: m.id, fullName: m.fullName ?? null, username: m.username ?? null },
+      update: { fullName: m.fullName ?? null, username: m.username ?? null },
+    });
+  }
+
+  for (const c of cards as TrelloCardDto[]) {
+    await db.bisneysTrelloCard.upsert({
+      where: { externalId: c.id },
+      create: {
+        externalId: c.id,
+        boardId,
+        listId: c.idList ?? null,
+        name: c.name,
+        description: c.desc ?? null,
+        due: c.due ? new Date(c.due) : null,
+        closed: c.closed ?? false,
+        labelsJson: (c.labels ?? []) as unknown as Prisma.InputJsonValue,
+        rawData: c as unknown as Prisma.InputJsonValue,
+        lastSyncedAt: new Date(),
+        syncStatus: "SYNCED",
+      },
+      update: {
+        listId: c.idList ?? null,
+        name: c.name,
+        description: c.desc ?? null,
+        due: c.due ? new Date(c.due) : null,
+        closed: c.closed ?? false,
+        labelsJson: (c.labels ?? []) as unknown as Prisma.InputJsonValue,
+        rawData: c as unknown as Prisma.InputJsonValue,
+        lastSyncedAt: new Date(),
+        syncStatus: "SYNCED",
+      },
+    });
+    // Map every open card onto a domain entity so the CRM is populated even for
+    // cards with no recent action in the imported window.
+    if (!c.closed) {
+      if (boardKind === "sales") await ensureCompanyFromCard({ id: c.id, name: c.name }, await listMappedStatus(c.idList));
+      else await ensureCandidateFromCard({ id: c.id, name: c.name });
+    }
+  }
+}
+
+/* ---------------- orchestration ---------------- */
+
+async function selectedBoards(): Promise<{ externalId: string; kind: BoardKind }[]> {
+  const conn = await getConnection();
+  const boards = await db.bisneysTrelloBoard.findMany({ where: { isSelected: true }, select: { externalId: true } });
+  return boards.map((b) => ({
+    externalId: b.externalId,
+    kind: b.externalId === conn?.salesBoardId ? "sales" : "delivery",
+  }));
+}
+
+export type SyncResult = { ok: boolean; processed: number; error?: string };
+
+/** Full initial import of every selected board (brief §16). */
+export async function runInitialSync(): Promise<SyncResult> {
+  const creds = await getCreds();
+  if (!creds) return { ok: false, processed: 0, error: "Trello nije povezan." };
+
+  const log = await db.bisneysTrelloSyncLog.create({ data: { kind: "initial", status: "SYNCING" } });
+  await setStatus("SYNCING");
+  let processed = 0;
+
+  try {
+    const boards = await selectedBoards();
+    if (!boards.length) throw new Error("Nije odabran nijedan board.");
+
+    for (const b of boards) {
+      await syncBoardData(creds, b.externalId, b.kind);
+      const actions = await trello.boardActions(creds, b.externalId, undefined, 1000);
+      // Oldest first so state transitions apply in order.
+      for (const a of actions.reverse()) {
+        if ((await processTrelloAction(a, b.kind)) === "processed") processed++;
+      }
+      await db.bisneysTrelloBoard.updateMany({
+        where: { externalId: b.externalId },
+        data: { lastSyncedAt: new Date(), syncStatus: "SYNCED" },
+      });
+    }
+
+    await updateConnection({ status: "SYNCED", lastSyncedAt: new Date(), lastError: null });
+    await db.bisneysTrelloSyncLog.update({
+      where: { id: log.id },
+      data: { status: "SYNCED", finishedAt: new Date(), countsJson: { processed } },
+    });
+    return { ok: true, processed };
+  } catch (e) {
+    const msg = (e as Error).message.slice(0, 300);
+    await setStatus("ERROR", msg);
+    await db.bisneysTrelloSyncLog.update({
+      where: { id: log.id },
+      data: { status: "ERROR", finishedAt: new Date(), message: msg },
+    });
+    return { ok: false, processed, error: msg };
+  }
+}
+
+/** Incremental reconciliation — processes actions since the last sync (brief §18). */
+export async function runReconcile(): Promise<SyncResult> {
+  const creds = await getCreds();
+  if (!creds) return { ok: false, processed: 0, error: "Trello nije povezan." };
+  const conn = await getConnection();
+  const since = conn?.lastSyncedAt?.toISOString();
+
+  const log = await db.bisneysTrelloSyncLog.create({ data: { kind: "reconcile", status: "SYNCING" } });
+  let processed = 0;
+  try {
+    for (const b of await selectedBoards()) {
+      const actions = await trello.boardActions(creds, b.externalId, since, 1000);
+      for (const a of actions.reverse()) {
+        if ((await processTrelloAction(a, b.kind)) === "processed") processed++;
+      }
+    }
+    await updateConnection({ status: "SYNCED", lastSyncedAt: new Date(), lastError: null });
+    await db.bisneysTrelloSyncLog.update({
+      where: { id: log.id },
+      data: { status: "SYNCED", finishedAt: new Date(), countsJson: { processed } },
+    });
+    return { ok: true, processed };
+  } catch (e) {
+    const msg = (e as Error).message.slice(0, 300);
+    await setStatus("ERROR", msg);
+    await db.bisneysTrelloSyncLog.update({ where: { id: log.id }, data: { status: "ERROR", finishedAt: new Date(), message: msg } });
+    return { ok: false, processed, error: msg };
+  }
+}
+
+/** Board kind for a given board id (used by the webhook). */
+export async function boardKindFor(boardId: string): Promise<BoardKind | null> {
+  const conn = await getConnection();
+  const board = await db.bisneysTrelloBoard.findUnique({ where: { externalId: boardId }, select: { isSelected: true } });
+  if (!board?.isSelected) return null;
+  return boardId === conn?.salesBoardId ? "sales" : "delivery";
+}

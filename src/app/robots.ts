@@ -15,6 +15,8 @@ export default function robots(): MetadataRoute.Robots {
           "/hvac/superadministracija",
           "/hvac/superadministracija/",
           "/hvac-b2b",
+          "/bisneyscrm",
+          "/bisneyscrm/",
           "/api",
           "/go/",
         ],
