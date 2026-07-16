@@ -1937,6 +1937,8 @@ model HvacTechnician {
   updatedAt       DateTime           @updatedAt
   deletedAt       DateTime?
 
+  appointments HvacAppointment[]
+
   @@index([tenantId, isActive])
   @@map("hvac_technicians")
 }
@@ -1954,6 +1956,8 @@ model HvacService {
   position       Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  appointments HvacAppointment[]
 
   @@index([tenantId, isActive])
   @@map("hvac_services")
@@ -1981,8 +1985,9 @@ model HvacCustomer {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  locations HvacLocation[]
-  units     HvacUnit[]
+  locations    HvacLocation[]
+  units        HvacUnit[]
+  appointments HvacAppointment[]
 
   @@index([tenantId, isActive])
   @@index([tenantId, lastName])
@@ -2010,8 +2015,9 @@ model HvacLocation {
   updatedAt         DateTime  @updatedAt
   deletedAt         DateTime?
 
-  customer HvacCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  units    HvacUnit[]
+  customer     HvacCustomer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  units        HvacUnit[]
+  appointments HvacAppointment[]
 
   @@index([tenantId])
   @@index([customerId])
@@ -2045,9 +2051,10 @@ model HvacUnit {
   updatedAt        DateTime       @updatedAt
   deletedAt        DateTime?
 
-  customer  HvacCustomer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  location  HvacLocation     @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  reminders HvacServiceReminder[]
+  customer     HvacCustomer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  location     HvacLocation          @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  reminders    HvacServiceReminder[]
+  appointments HvacAppointment[]
 
   @@index([tenantId])
   @@index([customerId])
@@ -2100,6 +2107,12 @@ model HvacAppointment {
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
   deletedAt          DateTime?
+
+  customer   HvacCustomer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  location   HvacLocation?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  unit       HvacUnit?       @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  service    HvacService?    @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  technician HvacTechnician? @relation(fields: [technicianId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, startAt])
   @@index([tenantId, technicianId, startAt])
