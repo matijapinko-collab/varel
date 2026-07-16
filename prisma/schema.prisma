@@ -2771,6 +2771,18 @@ model BisneysPerson {
   citizenship String?
   notes       String?
   source      String?
+  // Relationship Intelligence Engine fields.
+  secondaryEmail String?
+  secondaryPhone String?
+  linkedinUrl    String?
+  avatarUrl      String?
+  headline       String?
+  isVerified     Boolean @default(false)
+  verificationStatus String? @default("UNVERIFIED")
+  networkScore   Int?
+  referralScore  Int?
+  updatedById String?
+  lastActivityAt DateTime?
   // Trello linkage (a person may originate from a card / member).
   externalId    String?
   externalSource String?
@@ -2787,6 +2799,7 @@ model BisneysPerson {
   companyMemberships BisneysCompanyMembership[]
   contacts           BisneysContact[]
   candidate          BisneysCandidate?
+  employments        BisneysEmployment[]
   relationsFrom      BisneysRelationship[]      @relation("BisneysRelFrom")
   relationsTo        BisneysRelationship[]      @relation("BisneysRelTo")
   referralsGiven     BisneysReferral[]          @relation("BisneysReferrer")
@@ -2796,6 +2809,7 @@ model BisneysPerson {
   @@index([fullName])
   @@index([email])
   @@index([phone])
+  @@index([linkedinUrl])
   @@map("bisneys_people")
 }
 
@@ -2856,6 +2870,7 @@ model BisneysCompany {
   leads           BisneysLead[]
   jobs            BisneysJob[]
   companyServices BisneysCompanyService[]
+  employments     BisneysEmployment[]
 
   @@index([status])
   @@index([ownerId])
@@ -3190,12 +3205,18 @@ model BisneysJob {
 // ---------------- Relationship engine ----------------
 
 model BisneysRelationshipType {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  category  String?
-  symmetric Boolean  @default(false)
-  isSystem  Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String?  @unique
+  category    String?
+  description String?
+  symmetric   Boolean  @default(false)
+  directed    Boolean  @default(true)
+  color       String?
+  icon        String?
+  isActive    Boolean  @default(true)
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
   relationships BisneysRelationship[]
 
@@ -3214,9 +3235,15 @@ model BisneysRelationship {
   endDate            DateTime?
   note               String?
   infoSource         String?
+  sourceType         String?
+  strengthScore      Int?
+  confidenceScore    Int?
   confirmed          Boolean                      @default(false)
   addedById          String?
+  deletedAt          DateTime?
+  deletedById        String?
   createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @default(now()) @updatedAt
 
   source BisneysPerson           @relation("BisneysRelFrom", fields: [sourcePersonId], references: [id])
   target BisneysPerson           @relation("BisneysRelTo", fields: [targetPersonId], references: [id])
@@ -3225,7 +3252,57 @@ model BisneysRelationship {
   @@index([sourcePersonId])
   @@index([targetPersonId])
   @@index([relationshipTypeId])
+  @@index([companyId])
   @@map("bisneys_relationships")
+}
+
+// Structured employment history — powers "worked together" suggestions,
+// company access paths and the employment cards (brief §17).
+model BisneysEmployment {
+  id          String    @id @default(cuid())
+  personId    String
+  companyId   String?
+  companyName String?
+  title       String?
+  department  String?
+  startDate   DateTime?
+  endDate     DateTime?
+  isCurrent   Boolean   @default(false)
+  source      String?
+  confirmed   Boolean   @default(false)
+  note        String?
+  createdById String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  person  BisneysPerson   @relation(fields: [personId], references: [id])
+  company BisneysCompany? @relation(fields: [companyId], references: [id])
+
+  @@index([personId])
+  @@index([companyId])
+  @@map("bisneys_employments")
+}
+
+// Auto-suggested relationships awaiting confirmation (brief §33/§34). Never
+// promoted to a real relationship without a human confirm.
+model BisneysRelationshipSuggestion {
+  id             String    @id @default(cuid())
+  sourcePersonId String
+  targetPersonId String
+  suggestedType  String?
+  signalType     String
+  reason         String
+  confidence     String    @default("MEDIUM")
+  companyId      String?
+  status         String    @default("PENDING")
+  resolvedById   String?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@unique([sourcePersonId, targetPersonId, signalType])
+  @@index([status])
+  @@map("bisneys_relationship_suggestions")
 }
 
 model BisneysReferral {
