@@ -25,6 +25,22 @@ export function boolOf(v: FormDataEntryValue | null): boolean {
   return str(v) === "on" || str(v) === "true";
 }
 
+/** Normalize an email for dedup/search (lowercase, trimmed). */
+export function normalizeEmail(email: string | null | undefined): string | null {
+  const e = (email ?? "").trim().toLowerCase();
+  return e || null;
+}
+
+/** Normalize a Croatian phone to +385… digits for dedup/search. */
+export function normalizePhone(phone: string | null | undefined): string | null {
+  let d = (phone ?? "").replace(/[^\d+]/g, "");
+  if (!d) return null;
+  if (d.startsWith("00")) d = "+" + d.slice(2);
+  if (d.startsWith("0")) d = "+385" + d.slice(1);
+  if (!d.startsWith("+") && d.length >= 8) d = "+385" + d;
+  return d || null;
+}
+
 /** RFC-4180-ish CSV builder. */
 export function toCsv(headers: string[], rows: (string | number | null | undefined)[][]): string {
   const esc = (c: string | number | null | undefined) => {
