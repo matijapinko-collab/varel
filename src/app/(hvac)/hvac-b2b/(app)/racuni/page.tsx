@@ -27,12 +27,17 @@ export default async function InvoicesPage(props: PageProps<"/hvac-b2b/racuni">)
     ] } : {}),
   };
 
-  const [rows, total, unpaid] = await Promise.all([
+  const [rows, total, unpaidInvoices] = await Promise.all([
     db.hvacInvoice.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE, include: { customer: true } }),
     db.hvacInvoice.count({ where }),
-    db.hvacInvoice.aggregate({ where: { tenantId: ctx.tenantId, status: { in: ["ISSUED", "PARTIALLY_PAID", "OVERDUE"] } }, _sum: { totalEur: true } }),
+    db.hvacInvoice.findMany({ where: { tenantId: ctx.tenantId, status: { in: ["ISSUED", "PARTIALLY_PAID", "OVERDUE"] } }, select: { totalEur: true, payments: { select: { amountEur: true } } } }),
   ]);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // Outstanding = invoice total minus recorded payments (partial payments count).
+  const outstanding = unpaidInvoices.reduce((sum, inv) => {
+    const paid = inv.payments.reduce((s, p) => s + Number(p.amountEur), 0);
+    return sum + Math.max(0, Number(inv.totalEur) - paid);
+  }, 0);
 
   return (
     <div>
@@ -41,7 +46,7 @@ export default async function InvoicesPage(props: PageProps<"/hvac-b2b/racuni">)
           <Plus size={16} /> Novi račun
         </Link>
       </PageHeader>
-      <p className="-mt-2 mb-4 text-sm text-muted">Otvorena potraživanja: <span className="font-semibold text-foreground">{formatEur(Number(unpaid._sum.totalEur ?? 0))}</span></p>
+      <p className="-mt-2 mb-4 text-sm text-muted">Otvorena potraživanja: <span className="font-semibold text-foreground">{formatEur(outstanding)}</span></p>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <form className="relative min-w-[15rem] flex-1">
