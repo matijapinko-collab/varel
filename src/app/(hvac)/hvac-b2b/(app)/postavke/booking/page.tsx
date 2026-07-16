@@ -10,7 +10,7 @@ export default async function BookingSettingsPage() {
   const ctx = await requireTenantRole(MANAGE_ROLES);
   const b = await db.hvacBookingSettings.findUnique({ where: { tenantId: ctx.tenantId } });
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "https://varel.io";
-  const soloOnly = ctx.tenant.plan === "SOLO";
+  const startOnly = ctx.tenant.plan === "START";
 
   return (
     <div className="max-w-2xl">
@@ -41,13 +41,13 @@ export default async function BookingSettingsPage() {
 
       <div className="mt-6 rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold">Integracija u web-stranicu</h2>
-        {soloOnly ? (
+        {startOnly ? (
           <p className="mt-2 text-sm text-muted">
-            Solo paket uključuje booking isključivo kroz Varel web-aplikaciju. Integracija u WordPress ili vlastitu web-stranicu dostupna je u paketima Team i Business.
+            Start paket uključuje osnovni booking kroz Varel web-aplikaciju. Ugradnja bookinga u vlastitu web-stranicu dostupna je u paketima Team i Business.
           </p>
         ) : (
           <div className="mt-2 flex items-center gap-2 text-sm text-muted">
-            WordPress plugin i ugradnja u web-stranicu <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-300">Uskoro dostupno</span>
+            Ugradnja bookinga u web-stranicu <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-300">Uskoro dostupno</span>
           </div>
         )}
       </div>

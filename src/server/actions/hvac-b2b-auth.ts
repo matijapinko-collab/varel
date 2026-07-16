@@ -49,8 +49,9 @@ export async function registerCompany(_prev: RegisterResult, form: FormData): Pr
   const city = fd(form, "city");
   const postalCode = fd(form, "postalCode");
   const password = String(form.get("password") ?? "");
-  const plan = (fd(form, "plan") || "SOLO") as HvacPlan;
-  const term = (fd(form, "term") || "ANNUAL12") as HvacContractTerm;
+  const plan = (fd(form, "plan") || "START") as HvacPlan;
+  // Packages are monthly with no long-term contract.
+  const term: HvacContractTerm = "MONTHLY";
   const consent = form.get("consent") === "on" || form.get("consent") === "true";
   const privacy = form.get("privacy") === "on" || form.get("privacy") === "true";
 
@@ -84,7 +85,7 @@ export async function registerCompany(_prev: RegisterResult, form: FormData): Pr
     await tx.hvacSubscription.create({
       data: {
         tenantId: tenant.id, plan, term,
-        monthlyPriceEur: cfg.pricing[term], includedTechnicians: cfg.includedTechnicians,
+        monthlyPriceEur: cfg.monthlyPriceEur, includedUsers: cfg.includedUsers,
         status: "TRIAL", trialEndsAt: new Date(Date.now() + 14 * 86_400_000),
       },
     });

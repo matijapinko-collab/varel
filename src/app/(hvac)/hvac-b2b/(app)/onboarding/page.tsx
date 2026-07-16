@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireTenantContext } from "@/lib/hvac/tenant";
-import { technicianUsage } from "@/lib/hvac/limits";
 import { Field, Input, Checkbox, Textarea, SubmitButton, FormSection } from "@/components/admin/ui";
 import { formatEur } from "@/lib/hvac/format";
 import { onbCompany, onbHours, onbBooking, onbStep, onbComplete } from "@/server/actions/hvac-b2b-onboarding";
@@ -32,7 +31,6 @@ export default async function OnboardingPage(props: PageProps<"/hvac-b2b/onboard
     step === 5 || step === 7 ? db.hvacBookingSettings.findUnique({ where: { tenantId: t } }) : Promise.resolve(null),
   ]);
 
-  const usage = step === 4 || step === 7 ? await technicianUsage(t, ctx.tenant.plan) : null;
   const hours = (settings?.workingHoursJson ?? {}) as Record<string, { enabled?: boolean; start?: string; end?: string }>;
 
   return (
@@ -134,12 +132,6 @@ export default async function OnboardingPage(props: PageProps<"/hvac-b2b/onboard
       {/* Step 4 — technicians */}
       {step === 4 && (
         <FormSection title="Majstori">
-          {usage && (
-            <p className={`text-sm ${usage.overLimit ? "text-amber-600 dark:text-amber-300" : "text-muted"}`}>
-              Aktivnih majstora: {usage.active} / {usage.included} uključeno u paket.
-              {usage.overLimit && ` Dodatnih: ${usage.additional} (${formatEur(usage.projectedExtraEur)} mjesečno, uz odobrenje).`}
-            </p>
-          )}
           {technicians.length > 0 && (
             <ul className="mt-3 divide-y divide-border rounded-lg border border-border">
               {technicians.map((tech) => (

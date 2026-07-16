@@ -1,8 +1,5 @@
 import { db } from "@/lib/db";
 import { requireTenantContext, MANAGE_ROLES } from "@/lib/hvac/tenant";
-import { technicianUsage } from "@/lib/hvac/limits";
-import { PLAN_CONFIG } from "@/lib/hvac/b2b-config";
-import { formatEur } from "@/lib/hvac/format";
 import { PageHeader, Field, Input, SubmitButton, FormSection } from "@/components/admin/ui";
 import { createTechnician, toggleTechnician } from "@/server/actions/hvac-b2b";
 
@@ -11,20 +8,14 @@ export const dynamic = "force-dynamic";
 export default async function TechniciansPage() {
   const ctx = await requireTenantContext();
   const canManage = MANAGE_ROLES.includes(ctx.role);
-  const [technicians, usage] = await Promise.all([
-    db.hvacTechnician.findMany({ where: { tenantId: ctx.tenantId, deletedAt: null }, orderBy: [{ isActive: "desc" }, { name: "asc" }] }),
-    technicianUsage(ctx.tenantId, ctx.tenant.plan),
-  ]);
+  const technicians = await db.hvacTechnician.findMany({
+    where: { tenantId: ctx.tenantId, deletedAt: null },
+    orderBy: [{ isActive: "desc" }, { name: "asc" }],
+  });
 
   return (
     <div className="max-w-3xl">
       <PageHeader title="Majstori" />
-
-      <div className={`mb-4 rounded-lg border p-3 text-sm ${usage.overLimit ? "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300" : "border-border bg-background-secondary text-muted"}`}>
-        Aktivnih majstora: <span className="font-semibold">{usage.active}</span> / {usage.included} uključeno u {PLAN_CONFIG[ctx.tenant.plan].name}.
-        {usage.atLimit && !usage.overLimit && " Dosegnut je limit paketa."}
-        {usage.overLimit && ` Dodatnih ${usage.additional} — projekcija ${formatEur(usage.projectedExtraEur)} mjesečno (uz odobrenje Varel podrške).`}
-      </div>
 
       {canManage && (
         <form action={createTechnician} className="mb-6">

@@ -1,11 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Check, X, Star } from "lucide-react";
-import {
-  hvacPackages, hvacPricing, contractOrder, contractToggleLabels, contractLabels,
-  VAT_NOTE, type ContractKey, type PackageId,
-} from "@/lib/hvac/content";
+import { hvacPackages, hvacPricing, VAT_NOTE, EXTRA_USER_EUR, NO_CONTRACT_LABEL, type PackageId } from "@/lib/hvac/content";
 import { formatEur } from "@/lib/hvac/format";
 import { hvacTrack } from "@/lib/hvac/track";
 
@@ -17,9 +13,9 @@ function selectPlan(plan: string) {
   }
 }
 
-function PackageCard({ id, contract }: { id: PackageId; contract: ContractKey }) {
+function PackageCard({ id }: { id: PackageId }) {
   const pkg = hvacPackages.find((p) => p.id === id)!;
-  const price = hvacPricing[id][contract];
+  const price = hvacPricing[id].monthly;
 
   return (
     <div
@@ -39,8 +35,8 @@ function PackageCard({ id, contract }: { id: PackageId; contract: ContractKey })
         <span className="text-4xl font-bold tabular-nums">{formatEur(price)}</span>
         <span className="text-muted"> mjesečno</span>
       </div>
-      <p className="mt-1 text-xs text-muted">{contractLabels[contract]}</p>
-      <p className="mt-0.5 text-xs font-medium text-sky-600 dark:text-sky-300">{pkg.technicians}</p>
+      <p className="mt-1 text-xs text-muted">{NO_CONTRACT_LABEL}</p>
+      <p className="mt-0.5 text-xs font-medium text-sky-600 dark:text-sky-300">{pkg.users} · {pkg.storage}</p>
 
       <button
         type="button"
@@ -71,13 +67,6 @@ function PackageCard({ id, contract }: { id: PackageId; contract: ContractKey })
 }
 
 export function HvacPricing() {
-  const [contract, setContract] = useState<ContractKey>("annual12");
-
-  function change(next: ContractKey) {
-    setContract(next);
-    hvacTrack("hvac_package_selector_change", { contract: next });
-  }
-
   return (
     <section id="paketi" className="scroll-mt-20">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
@@ -85,38 +74,21 @@ export function HvacPricing() {
           <p className="text-sm font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">Paketi</p>
           <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Odaberite paket prema veličini svog tima</h2>
           <p className="mx-auto mt-4 max-w-2xl text-muted">
-            Uštedite više uz dužu ugovornu obvezu ili odaberite fleksibilno mjesečno plaćanje.
+            Plaćate mjesečno, bez dugoročnog ugovora. Paket možete promijeniti ili otkazati u skladu s uvjetima korištenja.
           </p>
           <p className="mt-2 text-sm font-medium text-sky-600 dark:text-sky-300">
-            Već od {formatEur(hvacPricing.solo.annual24)} mjesečno uz ugovor na 24 mjeseca.
+            Već od {formatEur(hvacPricing.start.monthly)} mjesečno.
           </p>
         </div>
 
-        {/* Contract toggle */}
-        <div className="mt-8 flex justify-center">
-          <div role="radiogroup" aria-label="Trajanje ugovora" className="inline-flex rounded-xl border border-border bg-card p-1">
-            {contractOrder.map((key) => (
-              <button
-                key={key}
-                role="radio"
-                aria-checked={contract === key}
-                onClick={() => change(key)}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500 ${
-                  contract === key ? "bg-gradient-to-r from-sky-500 to-cyan-500 text-white" : "text-muted hover:text-foreground"
-                }`}
-              >
-                {contractToggleLabels[key]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <p className="mt-3 text-center text-sm text-muted">{contractLabels[contract]}</p>
-
-        <div className="mt-8 grid items-start gap-5 lg:grid-cols-3">
-          {hvacPackages.map((p) => <PackageCard key={p.id} id={p.id} contract={contract} />)}
+        <div className="mt-10 grid items-start gap-5 lg:grid-cols-3">
+          {hvacPackages.map((p) => <PackageCard key={p.id} id={p.id} />)}
         </div>
 
-        <p className="mt-6 text-center text-sm font-medium text-muted">{VAT_NOTE}</p>
+        <p className="mt-6 text-center text-sm text-muted">
+          Svaki dodatni korisnik iznad limita paketa: <strong className="text-foreground">{formatEur(EXTRA_USER_EUR)} mjesečno</strong>.
+        </p>
+        <p className="mt-1 text-center text-sm font-medium text-muted">{VAT_NOTE}</p>
       </div>
     </section>
   );

@@ -14,17 +14,23 @@ import { hvacPricing } from "./content";
 
 /* ---------------- packages ---------------- */
 
+/**
+ * Package limits + monthly price (no long-term contract). These are the
+ * defaults; the superadministration will be able to override them per package.
+ */
 export const PLAN_CONFIG: Record<HvacPlan, {
   name: string;
-  includedTechnicians: number;
-  pricing: Record<HvacContractTerm, number>;
+  includedUsers: number;
+  storageGb: number;
+  monthlyPriceEur: number;
 }> = {
-  SOLO: { name: "Varel Solo", includedTechnicians: 1, pricing: { MONTHLY: hvacPricing.solo.monthly, ANNUAL12: hvacPricing.solo.annual12, ANNUAL24: hvacPricing.solo.annual24 } },
-  TEAM: { name: "Varel Team", includedTechnicians: 5, pricing: { MONTHLY: hvacPricing.team.monthly, ANNUAL12: hvacPricing.team.annual12, ANNUAL24: hvacPricing.team.annual24 } },
-  BUSINESS: { name: "Varel Business", includedTechnicians: 20, pricing: { MONTHLY: hvacPricing.business.monthly, ANNUAL12: hvacPricing.business.annual12, ANNUAL24: hvacPricing.business.annual24 } },
+  START: { name: "Varel Start", includedUsers: 1, storageGb: 5, monthlyPriceEur: hvacPricing.start.monthly },
+  TEAM: { name: "Varel Team", includedUsers: 5, storageGb: 25, monthlyPriceEur: hvacPricing.team.monthly },
+  BUSINESS: { name: "Varel Business", includedUsers: 15, storageGb: 100, monthlyPriceEur: hvacPricing.business.monthly },
 };
 
-export const EXTRA_TECHNICIAN_EUR = 15;
+/** Each user above the package limit. */
+export const EXTRA_USER_EUR = 12;
 
 export const CONTRACT_TERM_LABELS: Record<HvacContractTerm, string> = {
   MONTHLY: "Bez ugovorne obveze",

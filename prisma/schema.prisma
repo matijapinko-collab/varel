@@ -1642,7 +1642,7 @@ model LlmScanRequest {
 // =================================================================
 
 enum HvacPlan {
-  SOLO
+  START
   TEAM
   BUSINESS
 }
@@ -1822,7 +1822,7 @@ model HvacTenant {
   logoUrl             String?
   documentFooter      String?          @db.Text
   vatRegistered       Boolean          @default(false)
-  plan                HvacPlan         @default(SOLO)
+  plan                HvacPlan         @default(START)
   status              HvacTenantStatus @default(TRIAL)
   onboardingStep      Int              @default(0)
   onboardingCompleted Boolean          @default(false)
@@ -1856,11 +1856,12 @@ model HvacTenantSettings {
 model HvacSubscription {
   id                   String           @id @default(cuid())
   tenantId             String           @unique
-  plan                 HvacPlan         @default(SOLO)
+  plan                 HvacPlan         @default(START)
+  // Packages are monthly with no long-term contract; kept for future flexibility.
   term                 HvacContractTerm @default(MONTHLY)
   monthlyPriceEur      Decimal          @db.Decimal(10, 2)
-  includedTechnicians  Int              @default(1)
-  additionalTechnicians Int             @default(0)
+  includedUsers        Int              @default(1)
+  additionalUsers      Int              @default(0)
   status               HvacTenantStatus @default(TRIAL)
   startDate            DateTime?
   endDate              DateTime?

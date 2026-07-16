@@ -49,7 +49,7 @@ function softwareJsonLd() {
     offers: {
       "@type": "AggregateOffer",
       priceCurrency: "EUR",
-      lowPrice: hvacPricing.solo.annual24,
+      lowPrice: hvacPricing.start.monthly,
       highPrice: hvacPricing.business.monthly,
       offerCount: 3,
     },

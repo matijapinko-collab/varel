@@ -11,28 +11,20 @@ export const HVAC_ROUTES = {
   login: "/hvac-b2b",
 } as const;
 
-export type ContractKey = "monthly" | "annual12" | "annual24";
-
-export const contractOrder: ContractKey[] = ["monthly", "annual12", "annual24"];
-
-export const contractLabels: Record<ContractKey, string> = {
-  monthly: "Bez ugovorne obveze",
-  annual12: "Ugovor na 12 mjeseci",
-  annual24: "Ugovor na 24 mjeseca",
-};
-
-/** Short labels for the toggle control. */
-export const contractToggleLabels: Record<ContractKey, string> = {
-  monthly: "Mjesečno",
-  annual12: "12 mjeseci",
-  annual24: "24 mjeseca",
-};
-
+/**
+ * Monthly pricing, no long-term contract (packages are cancellable monthly).
+ * Prices are EUR/month excluding VAT.
+ */
 export const hvacPricing = {
-  solo: { monthly: 79, annual12: 69, annual24: 50 },
-  team: { monthly: 189, annual12: 169, annual24: 149 },
-  business: { monthly: 229, annual12: 199, annual24: 179 },
+  start: { monthly: 59 },
+  team: { monthly: 139 },
+  business: { monthly: 249 },
 } as const;
+
+/** Every additional user above the package limit. */
+export const EXTRA_USER_EUR = 12;
+
+export const NO_CONTRACT_LABEL = "Bez ugovorne obveze — plaćanje mjesečno";
 
 export const hvacWebsitePricing = {
   oneTime: 1000,
@@ -46,7 +38,8 @@ export type PackageId = keyof typeof hvacPricing;
 export type HvacPackage = {
   id: PackageId;
   name: string;
-  technicians: string;
+  users: string;
+  storage: string;
   tagline: string;
   bookingType: string;
   features: string[];
@@ -59,58 +52,59 @@ export type HvacPackage = {
 
 export const hvacPackages: HvacPackage[] = [
   {
-    id: "solo",
-    name: "Varel Solo",
-    technicians: "1 majstor",
+    id: "start",
+    name: "Varel Start",
+    users: "1 korisnik",
+    storage: "5 GB pohrane",
     tagline: "Za samostalne majstore i servisere.",
-    bookingType: "Booking kroz Varel web-aplikaciju",
+    bookingType: "Osnovni booking kroz Varel web-aplikaciju",
     features: [
-      "1 majstor",
+      "1 korisnik",
+      "Responzivna web-aplikacija",
       "Baza klijenata",
       "Lokacije i objekti",
       "Evidencija klima-uređaja",
-      "Servisna povijest",
       "Kalendar termina",
-      "Digitalni radni nalozi",
-      "Fotografije i dokumentacija",
-      "Ponude",
-      "Osnovno praćenje naplate",
-      "Servisni podsjetnici",
-      "Osnovni izvještaji",
-      "Booking kroz Varel web-aplikaciju",
-      "Zasebna Varel booking poveznica",
+      "Radni nalozi",
+      "Fotografije",
+      "Digitalni potpis klijenta",
+      "PDF izvještaji",
+      "Osnovne e-mail obavijesti",
+      "Osnovni Varel booking",
+      "5 GB pohrane",
+      "Standardna podrška",
+      "WhatsApp parser (uskoro)",
     ],
     excluded: [
-      "WordPress plugin",
-      "Booking embed u web-stranicu",
-      "Javni booking integracijski API",
-      "White-label booking",
-      "Zajednički kalendar za tim",
+      "Ponude",
+      "Ugovori o održavanju",
+      "Integracija bookinga u web-stranicu",
+      "Više korisničkih uloga",
+      "Više poslovnica",
     ],
-    note: "Solo booking radi isključivo kroz Varel web-aplikaciju i ne može se integrirati u WordPress ili drugu web-stranicu.",
-    cta: "Odaberite Solo",
+    note: "Start booking radi kroz Varel web-aplikaciju. Integracija u vlastitu web-stranicu dostupna je od Team paketa.",
+    cta: "Odaberite Start",
   },
   {
     id: "team",
     name: "Varel Team",
-    technicians: "Do 5 majstora",
-    tagline: "Za montažne timove i manje servise.",
-    bookingType: "Napredni booking + WordPress i embed",
+    users: "Do 5 korisnika",
+    storage: "25 GB pohrane",
+    tagline: "Za servisne timove koji rade zajedno.",
+    bookingType: "Napredni booking + integracija u web-stranicu",
     features: [
-      "Sve iz Solo paketa",
-      "Do 5 majstora",
-      "Zajednički kalendar",
-      "Dodjeljivanje poslova",
-      "Različite korisničke uloge",
-      "Izvještaji po majstoru",
-      "Digitalni potpis klijenta",
-      "Automatske potvrde",
-      "Automatski podsjetnici",
+      "Sve iz Start paketa",
+      "Do 5 korisnika",
       "Napredni online booking",
-      "WordPress plugin",
-      "Booking embed modul",
-      "Integracija bookinga u postojeću web-stranicu",
-      "Vizualna prilagodba bookinga",
+      "Dodatne korisničke uloge",
+      "Ponude",
+      "Odobravanje dodatnih radova",
+      "Ugovori o održavanju",
+      "Napredni servisni podsjetnici",
+      "Integracija bookinga u web-stranicu",
+      "25 GB pohrane",
+      "Android aplikacija (uskoro)",
+      "Share to Varel (uskoro)",
     ],
     excluded: [],
     cta: "Odaberite Team",
@@ -120,22 +114,23 @@ export const hvacPackages: HvacPackage[] = [
   {
     id: "business",
     name: "Varel Business",
-    technicians: "Do 20 majstora",
-    tagline: "Za veće servisne tvrtke i više timova.",
-    bookingType: "Sve iz Teama + više timova i lokacija",
+    users: "Do 15 korisnika",
+    storage: "100 GB pohrane",
+    tagline: "Za veće servisne tvrtke i više poslovnica.",
+    bookingType: "Sve iz Teama + više poslovnica",
     features: [
       "Sve iz Team paketa",
-      "Do 20 majstora",
-      "Svaki dodatni majstor 15 € mjesečno",
-      "Više timova",
-      "Voditelji timova",
+      "Do 15 korisnika",
+      "Više poslovnica",
       "Napredna korisnička prava",
-      "Više poslovnih lokacija",
-      "Napredno raspoređivanje",
-      "Upravljanje zalihama i dijelovima",
       "Napredni izvještaji",
+      "Prošireni revizijski zapis",
+      "100 GB pohrane",
       "Prioritetna podrška",
-      "Mogućnost povezane Next.js web-stranice",
+      "Android aplikacija čim bude dostupna",
+      "WhatsApp Business integracija (uskoro)",
+      "Prilagođeno PDF brendiranje",
+      "Napredna automatizacija",
     ],
     excluded: [],
     cta: "Odaberite Business",
@@ -193,25 +188,25 @@ export const hvacAfter = [
 /** Section 7 — booking comparison. */
 export const hvacBooking: { plan: string; heading: string; points: string[]; note?: string }[] = [
   {
-    plan: "Varel Solo",
-    heading: "Booking kroz Varel web-aplikaciju",
+    plan: "Varel Start",
+    heading: "Osnovni booking kroz Varel",
     points: [
       "Vlastita Varel booking poveznica",
       "Klijent bira uslugu i opisuje kvar",
       "Klijent unosi kontakt podatke",
       "Može priložiti fotografiju uređaja",
-      "Odabir ili zahtjev za slobodan termin",
+      "Zahtjev za željeni termin",
     ],
-    note: "Booking je dostupan isključivo putem Varel web-aplikacije. Ne može se ugraditi u WordPress ili drugu web-stranicu.",
+    note: "Booking je dostupan putem Varel web-aplikacije. Ugradnja u vlastitu web-stranicu dostupna je od Team paketa.",
   },
   {
     plan: "Varel Team",
     heading: "Napredni booking + integracija u web",
     points: [
-      "Sve iz Solo bookinga",
-      "WordPress plugin",
-      "Booking embed u postojeću web-stranicu",
-      "Vizualna prilagodba web-stranici tvrtke",
+      "Sve iz Start bookinga",
+      "Ugradnja bookinga u postojeću web-stranicu",
+      "Booking gumb i vizualna prilagodba",
+      "Odabir usluga i radnog vremena",
       "Zajednička dostupnost tima",
       "Automatske potvrde bookinga",
       "Dodjeljivanje majstora",
@@ -219,14 +214,13 @@ export const hvacBooking: { plan: string; heading: string; points: string[]; not
   },
   {
     plan: "Varel Business",
-    heading: "Booking za veće timove",
+    heading: "Booking za više poslovnica",
     points: [
       "Sve iz Team bookinga",
-      "Podrška za veće timove",
-      "Više servisnih područja",
+      "Više poslovnica i servisnih područja",
       "Napredna korisnička prava",
       "Napredno raspoređivanje",
-      "Mogućnost povezane Next.js web-stranice",
+      "Blokirani datumi po poslovnici",
     ],
   },
 ];
@@ -259,16 +253,16 @@ export const hvacWebsiteFeatures = [
 
 /** Section 13 — FAQ. */
 export const hvacFaq: { q: string; a: string }[] = [
-  { q: "Što je Varel HVAC?", a: "Varel HVAC je poslovni softver za montažere i servisere klima-uređaja. Povezuje klijente, uređaje, termine, majstore, radne naloge, booking i servisnu povijest u jedan sustav." },
-  { q: "Trebam li instalirati program?", a: "Ne. Varel HVAC je zamišljen kao web-aplikacija koja radi u modernom pregledniku i prilagođena je za računalo, tablet i mobitel." },
-  { q: "Mogu li koristiti Varel ako radim sam?", a: "Da. Varel Solo je namijenjen jednom samostalnom majstoru." },
-  { q: "Ima li Solo paket online booking?", a: "Da. Solo uključuje booking kroz zasebnu stranicu Varel web-aplikacije. Ne može se integrirati u WordPress ili drugu web-stranicu." },
-  { q: "Koji paket podržava WordPress booking?", a: "Varel Team i Varel Business podržavaju napredniju integraciju bookinga s postojećom web-stranicom, uključujući planiranu WordPress integraciju." },
-  { q: "Koliko majstora podržava Business paket?", a: "Business uključuje do 20 majstora. Svaki dodatni majstor stoji 15 € mjesečno." },
-  { q: "Postoji li ugovorna obveza?", a: "Možete odabrati fleksibilno mjesečno plaćanje bez dugoročnog ugovora, ugovor na 12 mjeseci ili povoljniji ugovor na 24 mjeseca." },
-  { q: "Mogu li isprobati aplikaciju prije kupnje?", a: "Ruta /hvac-demo pružit će sandbox okruženje s izmišljenim podacima kako biste istražili planirani tijek rada aplikacije." },
-  { q: "Je li web-stranica uključena u Business pretplatu?", a: "Ne. Povezana Next.js web-stranica dodatna je usluga dostupna Business korisnicima." },
-  { q: "Koliko košta Next.js web-stranica?", a: "Stoji 1.000 € kod jednokratnog plaćanja ili 1.500 € kroz 24 mjesečne rate po 62,50 €." },
+  { q: "Što je Varel HVAC?", a: "Varel HVAC je poslovni softver za montažere i servisere klima-uređaja. Povezuje klijente, lokacije, uređaje, termine, majstore, radne naloge, booking i servisnu povijest u jedan sustav." },
+  { q: "Trebam li instalirati program?", a: "Ne. Varel HVAC je web-aplikacija koja radi u modernom pregledniku i prilagođena je za računalo, tablet i mobitel." },
+  { q: "Mogu li koristiti Varel ako radim sam?", a: "Da. Varel Start namijenjen je jednom korisniku i stoji 59 € mjesečno." },
+  { q: "Postoji li ugovorna obveza?", a: "Ne. Svi paketi plaćaju se mjesečno, bez dugoročnog ugovora, i možete ih otkazati u skladu s uvjetima korištenja." },
+  { q: "Ima li Start paket online booking?", a: "Da. Start uključuje osnovni booking kroz Varel web-aplikaciju. Ugradnja bookinga u vlastitu web-stranicu dostupna je od Team paketa." },
+  { q: "Koji paket podržava integraciju bookinga u web-stranicu?", a: "Varel Team i Varel Business podržavaju ugradnju bookinga u postojeću web-stranicu." },
+  { q: "Koliko korisnika podržavaju paketi?", a: "Start uključuje 1 korisnika, Team do 5, a Business do 15 korisnika. Svaki dodatni korisnik stoji 12 € mjesečno." },
+  { q: "Koliko pohrane dobivam?", a: "Start uključuje 5 GB, Team 25 GB, a Business 100 GB pohrane za fotografije i dokumente." },
+  { q: "Mogu li isprobati aplikaciju prije kupnje?", a: "Ruta /hvac-demo pružit će sandbox okruženje s izmišljenim podacima kako biste istražili tijek rada aplikacije." },
+  { q: "Je li web-stranica uključena u pretplatu?", a: "Ne. Povezana Next.js web-stranica dodatna je usluga i naplaćuje se zasebno." },
   { q: "Jesu li cijene s PDV-om?", a: "Ne. Sve prikazane cijene su bez PDV-a." },
 ];
 

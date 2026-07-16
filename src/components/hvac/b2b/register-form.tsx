@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 import { registerCompany, type RegisterResult } from "@/server/actions/hvac-b2b-auth";
-import { PLAN_CONFIG, CONTRACT_TERM_LABELS } from "@/lib/hvac/b2b-config";
+import { PLAN_CONFIG } from "@/lib/hvac/b2b-config";
+import { formatEur } from "@/lib/hvac/format";
 import { authInputCls } from "./auth-shell";
 
 function Field({ id, label, children, required }: { id: string; label: string; children: React.ReactNode; required?: boolean }) {
@@ -34,22 +35,19 @@ export function RegisterForm() {
         <Field id="postalCode" label="Poštanski broj"><input id="postalCode" name="postalCode" className={authInputCls} /></Field>
         <Field id="password" label="Lozinka" required><input id="password" name="password" type="password" required minLength={10} autoComplete="new-password" className={authInputCls} /></Field>
         <Field id="plan" label="Paket" required>
-          <select id="plan" name="plan" defaultValue="SOLO" className={authInputCls}>
+          <select id="plan" name="plan" defaultValue="START" className={authInputCls}>
             {(Object.keys(PLAN_CONFIG) as (keyof typeof PLAN_CONFIG)[]).map((k) => (
-              <option key={k} value={k}>{PLAN_CONFIG[k].name}</option>
-            ))}
-          </select>
-        </Field>
-        <Field id="term" label="Trajanje ugovora" required>
-          <select id="term" name="term" defaultValue="ANNUAL12" className={authInputCls}>
-            {(Object.keys(CONTRACT_TERM_LABELS) as (keyof typeof CONTRACT_TERM_LABELS)[]).map((k) => (
-              <option key={k} value={k}>{CONTRACT_TERM_LABELS[k]}</option>
+              <option key={k} value={k}>
+                {PLAN_CONFIG[k].name} — {formatEur(PLAN_CONFIG[k].monthlyPriceEur)}/mj · {PLAN_CONFIG[k].includedUsers} kor.
+              </option>
             ))}
           </select>
         </Field>
       </div>
 
-      <p className="text-xs text-muted">Lozinka mora imati najmanje 10 znakova. Sve cijene su bez PDV-a.</p>
+      <p className="text-xs text-muted">
+        Lozinka mora imati najmanje 10 znakova. Plaćanje je mjesečno, bez dugoročnog ugovora. Sve cijene su bez PDV-a.
+      </p>
 
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" name="consent" className="mt-0.5 h-4 w-4 accent-sky-500" /> Prihvaćam uvjete korištenja.

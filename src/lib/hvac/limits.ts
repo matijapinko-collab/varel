@@ -1,14 +1,16 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { PLAN_CONFIG, EXTRA_TECHNICIAN_EUR } from "./b2b-config";
+import { PLAN_CONFIG, EXTRA_USER_EUR } from "./b2b-config";
 import type { HvacPlan } from "@/generated/prisma/client";
 
 /**
- * Package technician limits. Only ACTIVE technicians count. During the MVP,
- * going above the included limit is tracked (and an internal Varel admin must
- * approve/bill extras) — it is not auto-blocked, but the UI warns.
+ * Package limits apply to USERS (login accounts), per the pricing model.
+ * A technician who has no login does not consume a seat.
+ *
+ * Going above the included limit is tracked and surfaced (an internal Varel
+ * admin approves/bills extras during the MVP) — it is not silently blocked.
  */
-export type TechnicianUsage = {
+export type UserUsage = {
   active: number;
   included: number;
   additional: number;
@@ -18,9 +20,9 @@ export type TechnicianUsage = {
   projectedExtraEur: number;
 };
 
-export async function technicianUsage(tenantId: string, plan: HvacPlan): Promise<TechnicianUsage> {
-  const active = await db.hvacTechnician.count({ where: { tenantId, isActive: true, deletedAt: null } });
-  const included = PLAN_CONFIG[plan].includedTechnicians;
+export async function userUsage(tenantId: string, plan: HvacPlan): Promise<UserUsage> {
+  const active = await db.hvacTenantUser.count({ where: { tenantId, isActive: true } });
+  const included = PLAN_CONFIG[plan].includedUsers;
   const additional = Math.max(0, active - included);
   return {
     active,
@@ -29,6 +31,14 @@ export async function technicianUsage(tenantId: string, plan: HvacPlan): Promise
     remaining: Math.max(0, included - active),
     atLimit: active >= included,
     overLimit: active > included,
-    projectedExtraEur: additional * EXTRA_TECHNICIAN_EUR,
+    projectedExtraEur: additional * EXTRA_USER_EUR,
   };
+}
+
+/** Storage usage against the package allowance. */
+export async function storageUsage(tenantId: string, plan: HvacPlan): Promise<{ usedBytes: number; limitGb: number; percent: number }> {
+  const agg = await db.hvacFileAsset.aggregate({ where: { tenantId, archivedAt: null }, _sum: { size: true } });
+  const usedBytes = agg._sum.size ?? 0;
+  const limitGb = PLAN_CONFIG[plan].storageGb;
+  return { usedBytes, limitGb, percent: Math.min(100, Math.round((usedBytes / (limitGb * 1024 ** 3)) * 100)) };
 }
