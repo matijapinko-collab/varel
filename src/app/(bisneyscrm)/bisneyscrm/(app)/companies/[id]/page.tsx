@@ -1,0 +1,120 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { requireBisneysUser } from "@/lib/bisneyscrm/auth/guard";
+import { db } from "@/lib/db";
+import { archiveCompany } from "@/server/actions/bisneys-companies";
+import { BisneysPageHeader } from "@/components/bisneyscrm/shared/module-page";
+import { BackLink, DetailCard, DetailRow, StatusPill, LinkButton } from "@/components/bisneyscrm/shared/ui";
+import { SALES_STATUS_LABELS } from "@/lib/bisneyscrm/trello/mapping";
+import { money, shortDate, dateTime } from "@/lib/bisneyscrm/format";
+
+export const dynamic = "force-dynamic";
+
+export default async function CompanyProfile({ params }: { params: Promise<{ id: string }> }) {
+  await requireBisneysUser();
+  const { id } = await params;
+
+  const c = await db.bisneysCompany.findFirst({
+    where: { id, deletedAt: null },
+    include: {
+      contacts: { include: { person: true } },
+      deals: { orderBy: { createdAt: "desc" } },
+      _count: { select: { jobs: true } },
+    },
+  });
+  if (!c) notFound();
+
+  const activities = await db.bisneysActivity.findMany({
+    where: { companyId: c.id }, orderBy: { occurredAt: "desc" }, take: 15,
+  });
+
+  return (
+    <div className="max-w-4xl">
+      <BackLink href="/bisneyscrm/companies">Tvrtke</BackLink>
+      <BisneysPageHeader title={c.name} description={c.industry ?? undefined}>
+        <StatusPill status={c.status} label={SALES_STATUS_LABELS[c.status]} />
+        <LinkButton href={`/bisneyscrm/companies/${c.id}/uredi`} variant="ghost">Uredi</LinkButton>
+        <form action={archiveCompany.bind(null, c.id)}>
+          <button type="submit" className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-red-500 hover:border-red-400">Arhiviraj</button>
+        </form>
+      </BisneysPageHeader>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DetailCard title="Osnovni podaci">
+          <dl>
+            <DetailRow label="Pravni naziv">{c.legalName ?? "—"}</DetailRow>
+            <DetailRow label="OIB">{c.oib ?? "—"}</DetailRow>
+            <DetailRow label="Web">{c.website ? <a href={c.website} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline dark:text-indigo-300">{c.website}</a> : "—"}</DetailRow>
+            <DetailRow label="Grad / država">{[c.city, c.country].filter(Boolean).join(", ") || "—"}</DetailRow>
+            <DetailRow label="Telefon">{c.phone ?? "—"}</DetailRow>
+            <DetailRow label="Email">{c.email ?? "—"}</DetailRow>
+          </dl>
+        </DetailCard>
+
+        <DetailCard title="Sales">
+          <dl>
+            <DetailRow label="Status"><StatusPill status={c.status} label={SALES_STATUS_LABELS[c.status]} /></DetailRow>
+            <DetailRow label="Vrijednost posla">{money(c.dealValue, c.currency ?? "EUR")}</DetailRow>
+            <DetailRow label="Vjerojatnost">{c.closeProbability != null ? `${c.closeProbability} %` : "—"}</DetailRow>
+            <DetailRow label="Očekivano zatvaranje">{shortDate(c.expectedCloseDate)}</DetailRow>
+            <DetailRow label="Sljedeći follow-up">{shortDate(c.nextFollowUpAt)}</DetailRow>
+            <DetailRow label="Izvor leada">{c.leadSource ?? "—"}</DetailRow>
+          </dl>
+        </DetailCard>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <DetailCard title={`Kontakti (${c.contacts.length})`}>
+          {c.contacts.length === 0 ? (
+            <p className="text-sm text-muted">Nema povezanih kontakata.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {c.contacts.map((ct) => (
+                <li key={ct.id} className="flex items-center justify-between">
+                  <Link href={`/bisneyscrm/people/${ct.personId}`} className="font-medium text-indigo-600 hover:underline dark:text-indigo-300">{ct.person.fullName}</Link>
+                  <span className="text-muted">{ct.title ?? ct.email ?? ct.phone ?? ""}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DetailCard>
+
+        <DetailCard title={`Poslovi / dealovi`}>
+          {c.deals.length === 0 ? (
+            <p className="text-sm text-muted">Nema dealova.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {c.deals.map((d) => (
+                <li key={d.id} className="flex items-center justify-between">
+                  <span>{d.name}</span>
+                  <span className="tabular-nums font-medium">{money(d.amount, d.currency)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DetailCard>
+      </div>
+
+      <div className="mt-4">
+        <DetailCard title="Aktivnosti">
+          {activities.length === 0 ? (
+            <p className="text-sm text-muted">Još nema aktivnosti za ovu tvrtku.</p>
+          ) : (
+            <ul className="space-y-3">
+              {activities.map((a) => (
+                <li key={a.id} className="flex gap-3 text-sm">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
+                  <div>
+                    <span className="font-medium">{a.type}</span>
+                    {a.oldValue || a.newValue ? <span className="text-muted"> · {a.oldValue ?? "—"} → {a.newValue ?? "—"}</span> : null}
+                    <div className="text-xs text-muted">{a.actorName ?? "Sustav"} · {dateTime(a.occurredAt)} · {a.source}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DetailCard>
+      </div>
+    </div>
+  );
+}
