@@ -40,6 +40,29 @@ export async function saveCompany(form: FormData) {
   revalidatePath("/hvac-b2b/postavke/tvrtka");
 }
 
+/** Invoicing defaults: IBAN, payment terms, quote validity, VAT rate, footer. */
+export async function saveInvoicingSettings(form: FormData) {
+  const ctx = await requireTenantRole(MANAGE_ROLES);
+  const vatRate = fdNum(form, "invoiceVatRate");
+  const payTerms = fdNum(form, "defaultPaymentTermsDays");
+  const validity = fdNum(form, "quoteValidityDays");
+  const data = {
+    iban: fd(form, "iban") || null,
+    bankName: fd(form, "bankName") || null,
+    invoiceFooter: fd(form, "invoiceFooter") || null,
+    invoiceVatRate: vatRate != null && vatRate >= 0 ? vatRate : 25,
+    defaultPaymentTermsDays: payTerms != null && payTerms >= 0 ? Math.round(payTerms) : 15,
+    quoteValidityDays: validity != null && validity >= 0 ? Math.round(validity) : 30,
+  };
+  await db.hvacTenantSettings.upsert({
+    where: { tenantId: ctx.tenantId },
+    create: { tenantId: ctx.tenantId, ...data },
+    update: data,
+  });
+  await logActivity(ctx, "invoicing_settings_updated", "tenant", ctx.tenantId);
+  revalidatePath("/hvac-b2b/postavke/tvrtka");
+}
+
 /* ---------------- services ---------------- */
 
 export async function seedDefaultServices() {

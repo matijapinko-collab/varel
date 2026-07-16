@@ -1845,6 +1845,11 @@ model HvacTenantSettings {
   workingHoursJson Json?
   blockedDatesJson Json?
   invoiceVatRate  Decimal  @default(25) @db.Decimal(5, 2)
+  iban            String?
+  bankName        String?
+  defaultPaymentTermsDays Int @default(15)
+  quoteValidityDays Int    @default(30)
+  invoiceFooter   String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -1991,6 +1996,8 @@ model HvacCustomer {
   units        HvacUnit[]
   appointments HvacAppointment[]
   workOrders   HvacWorkOrder[]
+  quotations   HvacQuotation[]
+  invoices     HvacInvoice[]
 
   @@index([tenantId, isActive])
   @@index([tenantId, lastName])
@@ -2022,6 +2029,7 @@ model HvacLocation {
   units        HvacUnit[]
   appointments HvacAppointment[]
   workOrders   HvacWorkOrder[]
+  quotations   HvacQuotation[]
 
   @@index([tenantId])
   @@index([customerId])
@@ -2235,10 +2243,15 @@ model HvacQuotation {
   totalEur     Decimal         @default(0) @db.Decimal(10, 2)
   workOrderId  String?
   invoiceId    String?
+  publicToken  String?         @unique
+  sentAt       DateTime?
+  acceptedAt   DateTime?
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
-  items HvacQuotationItem[]
+  customer HvacCustomer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  location HvacLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  items    HvacQuotationItem[]
 
   @@unique([tenantId, number])
   @@index([tenantId, status])
@@ -2283,9 +2296,13 @@ model HvacInvoice {
   customerNote   String?           @db.Text
   workOrderId    String?
   quotationId    String?
+  publicToken    String?           @unique
+  sentAt         DateTime?
+  paidAt         DateTime?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
+  customer HvacCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   items    HvacInvoiceItem[]
   payments HvacPayment[]
 
@@ -2546,4 +2563,1040 @@ model HvacSupportAccessLog {
 
   @@index([tenantId, startedAt])
   @@map("hvac_support_access_logs")
+}
+
+// =============================================================
+// BISNEYS CRM
+// Isolated internal CRM (sales + recruitment ATS + Trello analytics).
+// Every model is prefixed `Bisneys*` and mapped to a `bisneys_*` table so
+// it never collides with, or couples to, the existing Varel models.
+// Domain models are Trello-independent (adapter pattern):
+//   TrelloCard --> sync/mapping --> BisneysCompany | BisneysCandidate | BisneysJob
+// so the whole CRM can outlive the Trello integration.
+// =============================================================
+
+enum BisneysRole {
+  SUPERADMIN
+  ADMIN
+}
+
+enum BisneysActivitySource {
+  TRELLO
+  BISNEYS_CRM
+  SYSTEM
+  IMPORT
+}
+
+enum BisneysActivityType {
+  COMPANY_CREATED
+  COMPANY_UPDATED
+  LEAD_CREATED
+  LEAD_UPDATED
+  CALL_LOGGED
+  COMMENT_ADDED
+  FOLLOW_UP_CREATED
+  FOLLOW_UP_COMPLETED
+  PITCH_SENT
+  PITCH_PRESENTED
+  MEETING_SCHEDULED
+  MEETING_COMPLETED
+  DEAL_VALUE_CHANGED
+  DEAL_WON
+  DEAL_LOST
+  CARD_MOVED
+  CONTACT_ADDED
+  DUE_DATE_CHANGED
+  DOCUMENT_UPLOADED
+  CANDIDATE_CREATED
+  CANDIDATE_UPDATED
+  CANDIDATE_STATUS_CHANGED
+  RELATIONSHIP_ADDED
+  RELATIONSHIP_REMOVED
+}
+
+enum BisneysSyncStatus {
+  PENDING
+  SYNCING
+  SYNCED
+  PARTIALLY_SYNCED
+  ERROR
+  DISCONNECTED
+}
+
+enum BisneysSalesStatus {
+  INTERNAL_GUIDELINES
+  NEW_COMPANY
+  RESEARCH
+  NEW_LEAD
+  QUALIFICATION
+  FOLLOW_UP
+  PITCH
+  MEETING
+  NURTURE
+  NEGOTIATE
+  CLOSED
+  LOST
+  ARCHIVED
+  ON_HOLD
+}
+
+enum BisneysCandidateStatus {
+  NEW
+  CONTACTED
+  FIRST_CALL
+  QUALIFIED
+  SECOND_INTERVIEW
+  READY_FOR_CLIENT
+  SENT_TO_CLIENT
+  CLIENT_INTERVIEW
+  CLIENT_INTERESTED
+  OFFERED
+  HIRED
+  REJECTED
+  CANDIDATE_DECLINED
+  ON_HOLD
+  UNREACHABLE
+}
+
+enum BisneysDealStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum BisneysCallOutcome {
+  ANSWERED
+  NO_ANSWER
+  CALL_BACK
+  INTERESTED
+  NOT_INTERESTED
+  MEETING_BOOKED
+  WRONG_NUMBER
+  UNREACHABLE
+}
+
+enum BisneysMeetingStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum BisneysNotificationStatus {
+  UNREAD
+  READ
+  RESOLVED
+  DISMISSED
+}
+
+enum BisneysNotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BisneysRelationshipDirection {
+  DIRECTED
+  SYMMETRIC
+}
+
+// ---------------- Auth & system ----------------
+
+model BisneysUser {
+  id                 String       @id @default(cuid())
+  username           String       @unique
+  email              String       @unique
+  passwordHash       String
+  role               BisneysRole  @default(ADMIN)
+  isActive           Boolean      @default(true)
+  mustChangePassword Boolean      @default(true)
+  // Bumped on password change / "log out everywhere" → invalidates old sessions.
+  sessionVersion     Int          @default(0)
+  lastLoginAt        DateTime?
+  passwordChangedAt  DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  auditLogs BisneysAuditLog[]
+
+  @@map("bisneys_users")
+}
+
+model BisneysAuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  beforeJson Json?
+  afterJson  Json?
+  ipHash     String?
+  userAgent  String?
+  source     String?
+  requestId  String?
+  createdAt  DateTime @default(now())
+
+  user BisneysUser? @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+  @@map("bisneys_audit_logs")
+}
+
+model BisneysSetting {
+  key       String   @id
+  valueJson Json?
+  updatedAt DateTime @updatedAt
+
+  @@map("bisneys_settings")
+}
+
+// ---------------- People, companies, contacts ----------------
+
+model BisneysPerson {
+  id          String    @id @default(cuid())
+  firstName   String?
+  lastName    String?
+  fullName    String
+  email       String?
+  phone       String?
+  phone2      String?
+  country     String?
+  city        String?
+  address     String?
+  dateOfBirth DateTime?
+  citizenship String?
+  notes       String?
+  source      String?
+  // Trello linkage (a person may originate from a card / member).
+  externalId    String?
+  externalSource String?
+  lastSyncedAt   DateTime?
+  syncStatus     BisneysSyncStatus?
+  rawData        Json?
+  createdById String?
+  deletedAt   DateTime?
+  deletedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  roles              BisneysPersonRole[]
+  companyMemberships BisneysCompanyMembership[]
+  contacts           BisneysContact[]
+  candidate          BisneysCandidate?
+  relationsFrom      BisneysRelationship[]      @relation("BisneysRelFrom")
+  relationsTo        BisneysRelationship[]      @relation("BisneysRelTo")
+  referralsGiven     BisneysReferral[]          @relation("BisneysReferrer")
+  referralsGot       BisneysReferral[]          @relation("BisneysReferred")
+  trelloMember       BisneysTrelloMember?
+
+  @@index([fullName])
+  @@index([email])
+  @@index([phone])
+  @@map("bisneys_people")
+}
+
+model BisneysPersonRole {
+  id        String   @id @default(cuid())
+  personId  String
+  role      String
+  companyId String?
+  note      String?
+  createdAt DateTime @default(now())
+
+  person BisneysPerson @relation(fields: [personId], references: [id])
+
+  @@index([personId])
+  @@map("bisneys_person_roles")
+}
+
+model BisneysCompany {
+  id              String             @id @default(cuid())
+  name            String
+  legalName       String?
+  oib             String?
+  website         String?
+  industry        String?
+  size            String?
+  country         String?
+  city            String?
+  address         String?
+  phone           String?
+  email           String?
+  description     String?
+  status          BisneysSalesStatus @default(NEW_COMPANY)
+  pipelineStageId String?
+  ownerId         String?
+  leadSource      String?
+  dealValue       Decimal?           @db.Decimal(12, 2)
+  currency        String?            @default("EUR")
+  expectedCloseDate DateTime?
+  closeProbability  Int?
+  serviceId         String?
+  lastActivityAt    DateTime?
+  nextFollowUpAt    DateTime?
+  externalId        String?
+  externalSource    String?
+  lastSyncedAt      DateTime?
+  syncStatus        BisneysSyncStatus?
+  rawData           Json?
+  createdById       String?
+  deletedAt         DateTime?
+  deletedById       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  pipelineStage   BisneysPipelineStage?      @relation(fields: [pipelineStageId], references: [id])
+  contacts        BisneysContact[]
+  memberships     BisneysCompanyMembership[]
+  deals           BisneysDeal[]
+  leads           BisneysLead[]
+  jobs            BisneysJob[]
+  companyServices BisneysCompanyService[]
+
+  @@index([status])
+  @@index([ownerId])
+  @@index([lastActivityAt])
+  @@index([externalId])
+  @@map("bisneys_companies")
+}
+
+model BisneysContact {
+  id        String   @id @default(cuid())
+  companyId String
+  personId  String
+  title     String?
+  email     String?
+  phone     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  company BisneysCompany @relation(fields: [companyId], references: [id])
+  person  BisneysPerson  @relation(fields: [personId], references: [id])
+
+  @@index([companyId])
+  @@index([personId])
+  @@map("bisneys_contacts")
+}
+
+model BisneysCompanyMembership {
+  id        String    @id @default(cuid())
+  companyId String
+  personId  String
+  role      String?
+  current   Boolean   @default(true)
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+
+  company BisneysCompany @relation(fields: [companyId], references: [id])
+  person  BisneysPerson  @relation(fields: [personId], references: [id])
+
+  @@index([companyId])
+  @@index([personId])
+  @@map("bisneys_company_memberships")
+}
+
+// ---------------- Leads, deals, pipeline ----------------
+
+model BisneysLead {
+  id           String             @id @default(cuid())
+  companyId    String?
+  title        String?
+  status       BisneysSalesStatus @default(NEW_LEAD)
+  ownerId      String?
+  source       String?
+  externalId   String?
+  lastActivityAt DateTime?
+  nextFollowUpAt DateTime?
+  deletedAt    DateTime?
+  deletedById  String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  company      BisneysCompany?             @relation(fields: [companyId], references: [id])
+  stageHistory BisneysLeadStageHistory[]
+  leadServices BisneysLeadService[]
+
+  @@index([status])
+  @@index([companyId])
+  @@map("bisneys_leads")
+}
+
+model BisneysLeadStageHistory {
+  id          String   @id @default(cuid())
+  leadId      String
+  fromStatus  String?
+  toStatus    String
+  changedById String?
+  note        String?
+  source      String?
+  createdAt   DateTime @default(now())
+
+  lead BisneysLead @relation(fields: [leadId], references: [id])
+
+  @@index([leadId])
+  @@map("bisneys_lead_stage_history")
+}
+
+model BisneysDeal {
+  id                String            @id @default(cuid())
+  companyId         String
+  serviceId         String?
+  name              String
+  amount            Decimal?          @db.Decimal(12, 2)
+  currency          String            @default("EUR")
+  billingModel      String?
+  status            BisneysDealStatus @default(OPEN)
+  probability       Int?
+  ownerId           String?
+  expectedCloseDate DateTime?
+  closedAmount      Decimal?          @db.Decimal(12, 2)
+  closedAt          DateTime?
+  lostReason        String?
+  deletedAt         DateTime?
+  deletedById       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  company BisneysCompany  @relation(fields: [companyId], references: [id])
+  service BisneysService? @relation(fields: [serviceId], references: [id])
+
+  @@index([companyId])
+  @@index([status])
+  @@index([ownerId])
+  @@map("bisneys_deals")
+}
+
+model BisneysPipeline {
+  id        String   @id @default(cuid())
+  name      String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  stages BisneysPipelineStage[]
+
+  @@map("bisneys_pipelines")
+}
+
+model BisneysPipelineStage {
+  id         String              @id @default(cuid())
+  pipelineId String
+  name       String
+  position   Int                 @default(0)
+  status     BisneysSalesStatus?
+
+  pipeline  BisneysPipeline  @relation(fields: [pipelineId], references: [id])
+  companies BisneysCompany[]
+
+  @@index([pipelineId])
+  @@map("bisneys_pipeline_stages")
+}
+
+// ---------------- Candidates ----------------
+
+model BisneysCandidate {
+  id            String                 @id @default(cuid())
+  personId      String                 @unique
+  status        BisneysCandidateStatus @default(NEW)
+  source        String?
+  recruiterId   String?
+  seniority     String?
+  yearsExperience Int?
+  education     String?
+  certifications String?
+  licenses      String?
+  drivingLicense String?
+  ownVehicle    Boolean?
+  availability  String?
+  expectedSalary String?
+  currency      String?                @default("EUR")
+  willingToRelocate Boolean?
+  willingFieldWork  Boolean?
+  currentEmployer   String?
+  currentPosition   String?
+  rating        Int?
+  interviewResult String?
+  notes         String?
+  firstContactAt DateTime?
+  lastActivityAt DateTime?
+  nextFollowUpAt DateTime?
+  enteredAt     DateTime?
+  // Trello linkage
+  externalId    String?
+  externalSource String?
+  lastSyncedAt  DateTime?
+  syncStatus    BisneysSyncStatus?
+  rawData       Json?
+  possibleDuplicate Boolean            @default(false)
+  deletedAt     DateTime?
+  deletedById   String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  person        BisneysPerson                   @relation(fields: [personId], references: [id])
+  statusHistory BisneysCandidateStatusHistory[]
+  professions   BisneysCandidateProfession[]
+  candidateJobs BisneysCandidateJob[]
+  employments   BisneysCandidateEmployment[]
+  languages     BisneysCandidateLanguage[]
+
+  @@index([status])
+  @@index([recruiterId])
+  @@index([externalId])
+  @@map("bisneys_candidates")
+}
+
+model BisneysCandidateStatusHistory {
+  id          String   @id @default(cuid())
+  candidateId String
+  fromStatus  String?
+  toStatus    String
+  changedById String?
+  jobId       String?
+  note        String?
+  source      String?
+  createdAt   DateTime @default(now())
+
+  candidate BisneysCandidate @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId])
+  @@map("bisneys_candidate_status_history")
+}
+
+model BisneysCandidateProfession {
+  id           String  @id @default(cuid())
+  candidateId  String
+  professionId String
+  isPrimary    Boolean @default(false)
+
+  candidate  BisneysCandidate  @relation(fields: [candidateId], references: [id])
+  profession BisneysProfession @relation(fields: [professionId], references: [id])
+
+  @@index([candidateId])
+  @@index([professionId])
+  @@map("bisneys_candidate_professions")
+}
+
+model BisneysCandidateJob {
+  id          String   @id @default(cuid())
+  candidateId String
+  jobId       String
+  stage       String?
+  createdAt   DateTime @default(now())
+
+  candidate BisneysCandidate @relation(fields: [candidateId], references: [id])
+  job       BisneysJob       @relation(fields: [jobId], references: [id])
+
+  @@unique([candidateId, jobId])
+  @@map("bisneys_candidate_jobs")
+}
+
+model BisneysCandidateEmployment {
+  id          String    @id @default(cuid())
+  candidateId String
+  employer    String
+  position    String?
+  startDate   DateTime?
+  endDate     DateTime?
+  isCurrent   Boolean   @default(false)
+  reason      String?
+
+  candidate BisneysCandidate @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId])
+  @@map("bisneys_candidate_employments")
+}
+
+model BisneysCandidateLanguage {
+  id          String  @id @default(cuid())
+  candidateId String
+  language    String
+  level       String?
+
+  candidate BisneysCandidate @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId])
+  @@map("bisneys_candidate_languages")
+}
+
+// ---------------- Jobs & professions ----------------
+
+model BisneysProfession {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  aliases              BisneysProfessionAlias[]
+  candidateProfessions BisneysCandidateProfession[]
+  jobs                 BisneysJob[]
+
+  @@map("bisneys_professions")
+}
+
+model BisneysProfessionAlias {
+  id           String @id @default(cuid())
+  professionId String
+  alias        String @unique
+
+  profession BisneysProfession @relation(fields: [professionId], references: [id])
+
+  @@index([professionId])
+  @@map("bisneys_profession_aliases")
+}
+
+model BisneysJob {
+  id             String    @id @default(cuid())
+  title          String
+  professionId   String?
+  companyId      String?
+  location       String?
+  headcount      Int?
+  salary         String?
+  currency       String?   @default("EUR")
+  contractType   String?
+  startDate      DateTime?
+  status         String?
+  recruiterId    String?
+  salesOwnerId   String?
+  description    String?
+  requirements   String?
+  languages      String?
+  licenses       String?
+  externalId     String?
+  externalSource String?
+  lastSyncedAt   DateTime?
+  syncStatus     BisneysSyncStatus?
+  rawData        Json?
+  deletedAt      DateTime?
+  deletedById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  profession    BisneysProfession?    @relation(fields: [professionId], references: [id])
+  client        BisneysCompany?       @relation(fields: [companyId], references: [id])
+  candidateJobs BisneysCandidateJob[]
+  jobServices   BisneysJobService[]
+
+  @@index([professionId])
+  @@index([companyId])
+  @@index([externalId])
+  @@map("bisneys_jobs")
+}
+
+// ---------------- Relationship engine ----------------
+
+model BisneysRelationshipType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  category  String?
+  symmetric Boolean  @default(false)
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  relationships BisneysRelationship[]
+
+  @@map("bisneys_relationship_types")
+}
+
+model BisneysRelationship {
+  id                 String                       @id @default(cuid())
+  sourcePersonId     String
+  targetPersonId     String
+  relationshipTypeId String
+  direction          BisneysRelationshipDirection @default(DIRECTED)
+  companyId          String?
+  jobId              String?
+  startDate          DateTime?
+  endDate            DateTime?
+  note               String?
+  infoSource         String?
+  confirmed          Boolean                      @default(false)
+  addedById          String?
+  createdAt          DateTime                     @default(now())
+
+  source BisneysPerson           @relation("BisneysRelFrom", fields: [sourcePersonId], references: [id])
+  target BisneysPerson           @relation("BisneysRelTo", fields: [targetPersonId], references: [id])
+  type   BisneysRelationshipType @relation(fields: [relationshipTypeId], references: [id])
+
+  @@index([sourcePersonId])
+  @@index([targetPersonId])
+  @@index([relationshipTypeId])
+  @@map("bisneys_relationships")
+}
+
+model BisneysReferral {
+  id                  String   @id @default(cuid())
+  referrerPersonId    String
+  referredPersonId    String
+  companyId           String?
+  resultedInInterview Boolean  @default(false)
+  resultedInHire      Boolean  @default(false)
+  dealValue           Decimal? @db.Decimal(12, 2)
+  note                String?
+  createdById         String?
+  createdAt           DateTime @default(now())
+
+  referrer BisneysPerson @relation("BisneysReferrer", fields: [referrerPersonId], references: [id])
+  referred BisneysPerson @relation("BisneysReferred", fields: [referredPersonId], references: [id])
+
+  @@index([referrerPersonId])
+  @@index([referredPersonId])
+  @@map("bisneys_referrals")
+}
+
+// ---------------- Services ----------------
+
+model BisneysService {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  isActive     Boolean  @default(true)
+  basePrice    Decimal? @db.Decimal(12, 2)
+  currency     String?  @default("EUR")
+  billingModel String?
+  color        String?
+  icon         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  companyServices BisneysCompanyService[]
+  leadServices    BisneysLeadService[]
+  jobServices     BisneysJobService[]
+  deals           BisneysDeal[]
+
+  @@map("bisneys_services")
+}
+
+model BisneysCompanyService {
+  id        String @id @default(cuid())
+  companyId String
+  serviceId String
+
+  company BisneysCompany @relation(fields: [companyId], references: [id])
+  service BisneysService @relation(fields: [serviceId], references: [id])
+
+  @@unique([companyId, serviceId])
+  @@map("bisneys_company_services")
+}
+
+model BisneysLeadService {
+  id        String @id @default(cuid())
+  leadId    String
+  serviceId String
+
+  lead    BisneysLead    @relation(fields: [leadId], references: [id])
+  service BisneysService @relation(fields: [serviceId], references: [id])
+
+  @@unique([leadId, serviceId])
+  @@map("bisneys_lead_services")
+}
+
+model BisneysJobService {
+  id        String @id @default(cuid())
+  jobId     String
+  serviceId String
+
+  job     BisneysJob     @relation(fields: [jobId], references: [id])
+  service BisneysService @relation(fields: [serviceId], references: [id])
+
+  @@unique([jobId, serviceId])
+  @@map("bisneys_job_services")
+}
+
+// ---------------- Activities & interactions (high-volume, loose refs) ----------------
+
+model BisneysActivity {
+  id           String                @id @default(cuid())
+  type         BisneysActivityType
+  source       BisneysActivitySource @default(BISNEYS_CRM)
+  actorName    String?
+  actorUserId  String?
+  actorMemberId String?
+  entityType   String?
+  entityId     String?
+  companyId    String?
+  candidateId  String?
+  jobId        String?
+  personId     String?
+  oldValue     String?
+  newValue     String?
+  trelloCardId String?
+  boardId      String?
+  listId       String?
+  occurredAt   DateTime              @default(now())
+  createdAt    DateTime              @default(now())
+
+  @@index([occurredAt])
+  @@index([actorMemberId, occurredAt])
+  @@index([companyId])
+  @@index([candidateId])
+  @@index([type])
+  @@map("bisneys_activities")
+}
+
+model BisneysComment {
+  id          String                @id @default(cuid())
+  body        String
+  authorName  String?
+  authorMemberId String?
+  source      BisneysActivitySource @default(BISNEYS_CRM)
+  externalId  String?
+  companyId   String?
+  candidateId String?
+  personId    String?
+  jobId       String?
+  createdAt   DateTime              @default(now())
+
+  @@index([companyId])
+  @@index([candidateId])
+  @@map("bisneys_comments")
+}
+
+model BisneysCall {
+  id             String                @id @default(cuid())
+  personId       String?
+  companyId      String?
+  leadId         String?
+  jobId          String?
+  candidateId    String?
+  byUserId       String?
+  byMemberId     String?
+  calledAt       DateTime              @default(now())
+  durationSec    Int?
+  outcome        BisneysCallOutcome?
+  note           String?
+  nextStep       String?
+  followUpAt     DateTime?
+  source         BisneysActivitySource @default(BISNEYS_CRM)
+  createdAt      DateTime              @default(now())
+
+  @@index([companyId])
+  @@index([candidateId])
+  @@index([calledAt])
+  @@map("bisneys_calls")
+}
+
+model BisneysMeeting {
+  id             String               @id @default(cuid())
+  title          String?
+  companyId      String?
+  contactPersonId String?
+  leadId         String?
+  meetingAt      DateTime
+  participantsJson Json?
+  kind           String?
+  location       String?
+  status         BisneysMeetingStatus @default(SCHEDULED)
+  notes          String?
+  outcome        String?
+  nextStep       String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([companyId])
+  @@index([meetingAt])
+  @@map("bisneys_meetings")
+}
+
+model BisneysFollowUp {
+  id          String    @id @default(cuid())
+  dueAt       DateTime
+  note        String?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  entityType  String?
+  entityId    String?
+  companyId   String?
+  candidateId String?
+  ownerId     String?
+  createdAt   DateTime  @default(now())
+
+  @@index([dueAt])
+  @@index([companyId])
+  @@index([candidateId])
+  @@map("bisneys_follow_ups")
+}
+
+model BisneysDocument {
+  id           String                @id @default(cuid())
+  name         String
+  url          String
+  mimeType     String?
+  size         Int?
+  entityType   String?
+  entityId     String?
+  companyId    String?
+  candidateId  String?
+  uploadedById String?
+  externalId   String?
+  source       BisneysActivitySource @default(BISNEYS_CRM)
+  createdAt    DateTime              @default(now())
+
+  @@index([companyId])
+  @@index([candidateId])
+  @@map("bisneys_documents")
+}
+
+// ---------------- Notifications ----------------
+
+model BisneysNotification {
+  id             String                      @id @default(cuid())
+  title          String
+  description    String?
+  priority       BisneysNotificationPriority @default(MEDIUM)
+  status         BisneysNotificationStatus   @default(UNREAD)
+  entityType     String?
+  entityId       String?
+  ruleKey        String?
+  assignedUserId String?
+  createdAt      DateTime                    @default(now())
+  resolvedAt     DateTime?
+
+  @@index([status])
+  @@index([assignedUserId, status])
+  @@index([priority])
+  @@map("bisneys_notifications")
+}
+
+model BisneysNotificationRule {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  isEnabled   Boolean  @default(true)
+  configJson  Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("bisneys_notification_rules")
+}
+
+// ---------------- Trello integration ----------------
+
+model BisneysTrelloConnection {
+  id           String            @id @default(cuid())
+  workspaceId  String?
+  workspaceName String?
+  apiKeyEnc    String?
+  tokenEnc     String?
+  status       BisneysSyncStatus @default(DISCONNECTED)
+  salesBoardId String?
+  lastSyncedAt DateTime?
+  lastError    String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@map("bisneys_trello_connections")
+}
+
+model BisneysTrelloBoard {
+  id           String            @id @default(cuid())
+  externalId   String            @unique
+  name         String
+  kind         String?
+  isSelected   Boolean           @default(false)
+  lastSyncedAt DateTime?
+  syncStatus   BisneysSyncStatus @default(PENDING)
+  rawData      Json?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@map("bisneys_trello_boards")
+}
+
+model BisneysTrelloList {
+  id           String   @id @default(cuid())
+  externalId   String   @unique
+  boardId      String
+  name         String
+  position     Float?
+  // Mapping is keyed by Trello list ID so it survives list renames (brief §19).
+  mappedStatus BisneysSalesStatus?
+  rawData      Json?
+  updatedAt    DateTime @updatedAt
+
+  @@index([boardId])
+  @@map("bisneys_trello_lists")
+}
+
+model BisneysTrelloCard {
+  id           String            @id @default(cuid())
+  externalId   String            @unique
+  boardId      String
+  listId       String?
+  name         String
+  description  String?
+  due          DateTime?
+  closed       Boolean           @default(false)
+  labelsJson   Json?
+  customFieldsJson Json?
+  rawData      Json?
+  lastSyncedAt DateTime?
+  syncStatus   BisneysSyncStatus @default(PENDING)
+  // Which domain entity this card was mapped to (adapter linkage).
+  linkedType   String?
+  linkedId     String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([boardId])
+  @@index([listId])
+  @@map("bisneys_trello_cards")
+}
+
+model BisneysTrelloMember {
+  id         String  @id @default(cuid())
+  externalId String  @unique
+  fullName   String?
+  username   String?
+  personId   String? @unique
+
+  person BisneysPerson? @relation(fields: [personId], references: [id])
+
+  @@map("bisneys_trello_members")
+}
+
+model BisneysTrelloWebhook {
+  id          String   @id @default(cuid())
+  externalId  String?  @unique
+  boardId     String
+  callbackUrl String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("bisneys_trello_webhooks")
+}
+
+model BisneysTrelloWebhookEvent {
+  id          String    @id @default(cuid())
+  // Trello action id — unique so duplicate deliveries are idempotent.
+  externalId  String?   @unique
+  boardId     String?
+  type        String?
+  payloadJson Json?
+  processed   Boolean   @default(false)
+  error       String?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([processed, createdAt])
+  @@map("bisneys_trello_webhook_events")
+}
+
+model BisneysTrelloSyncLog {
+  id         String            @id @default(cuid())
+  kind       String
+  status     BisneysSyncStatus @default(SYNCING)
+  message    String?
+  countsJson Json?
+  startedAt  DateTime          @default(now())
+  finishedAt DateTime?
+
+  @@index([startedAt])
+  @@map("bisneys_trello_sync_logs")
 }

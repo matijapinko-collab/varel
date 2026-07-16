@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Phone, MapPin, Printer, Trash2, Lock, Send } from "lucide-react";
+import { Phone, MapPin, Printer, Trash2, Lock, Send, FileText } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireTenantContext } from "@/lib/hvac/tenant";
 import { WORK_ORDER_STATUS, PRIORITY, TONE_CLASS, customerDisplayName } from "@/lib/hvac/b2b-config";
@@ -41,6 +41,8 @@ export default async function WorkOrderPage(props: PageProps<"/hvac-b2b/radni-na
   const assets = assetIds.length ? await db.hvacFileAsset.findMany({ where: { tenantId: ctx.tenantId, id: { in: assetIds } }, select: { id: true, url: true } }) : [];
   const urlOf = (id: string | null | undefined) => assets.find((a) => a.id === id)?.url ?? null;
 
+  const invoice = await db.hvacInvoice.findFirst({ where: { tenantId: ctx.tenantId, workOrderId: wo.id }, select: { id: true, number: true, status: true } });
+
   const locked = ["COMPLETED", "SENT"].includes(wo.status);
   const st = WORK_ORDER_STATUS[wo.status];
   const maps = wo.location?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([wo.location.address, wo.location.city].filter(Boolean).join(", "))}` : null;
@@ -69,11 +71,18 @@ export default async function WorkOrderPage(props: PageProps<"/hvac-b2b/radni-na
       {locked && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm text-emerald-700 dark:text-emerald-300">
           <span className="inline-flex items-center gap-1.5"><Lock size={14} /> Nalog je zaključan potpisom {wo.completedAt ? `· ${new Date(wo.completedAt).toLocaleDateString("hr-HR")}` : ""}</span>
-          {wo.status === "COMPLETED" && (
-            <form action={markWorkOrderSent.bind(null, wo.id)}>
-              <button className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold"><Send size={13} /> Označi poslano</button>
-            </form>
-          )}
+          <span className="flex flex-wrap items-center gap-2">
+            {invoice ? (
+              <Link href={`/hvac-b2b/racuni/${invoice.id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold"><FileText size={13} /> Račun {invoice.status === "DRAFT" ? "(nacrt)" : invoice.number}</Link>
+            ) : (
+              <Link href={`/hvac-b2b/racuni/novi?workOrderId=${wo.id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold"><FileText size={13} /> Kreiraj račun</Link>
+            )}
+            {wo.status === "COMPLETED" && (
+              <form action={markWorkOrderSent.bind(null, wo.id)}>
+                <button className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold"><Send size={13} /> Označi poslano</button>
+              </form>
+            )}
+          </span>
         </div>
       )}
 

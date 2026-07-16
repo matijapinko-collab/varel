@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireTenantRole, MANAGE_ROLES } from "@/lib/hvac/tenant";
 import { PageHeader, Field, Input, Checkbox, Textarea, SubmitButton, FormSection } from "@/components/admin/ui";
-import { saveCompany, saveWorkingHours } from "@/server/actions/hvac-b2b";
+import { saveCompany, saveWorkingHours, saveInvoicingSettings } from "@/server/actions/hvac-b2b";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +63,20 @@ export default async function CompanySettingsPage() {
             })}
           </div>
           <SubmitButton label="Spremi radno vrijeme" />
+        </FormSection>
+      </form>
+
+      <form action={saveInvoicingSettings} className="mt-6">
+        <FormSection title="Ponude i računi">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="IBAN"><Input name="iban" defaultValue={settings?.iban ?? ""} placeholder="HR..." /></Field>
+            <Field label="Naziv banke"><Input name="bankName" defaultValue={settings?.bankName ?? ""} /></Field>
+            <Field label="Rok plaćanja (dana)"><Input name="defaultPaymentTermsDays" type="number" min={0} defaultValue={settings?.defaultPaymentTermsDays ?? 15} /></Field>
+            <Field label="Valjanost ponude (dana)"><Input name="quoteValidityDays" type="number" min={0} defaultValue={settings?.quoteValidityDays ?? 30} /></Field>
+            <Field label="Stopa PDV-a (%)"><Input name="invoiceVatRate" type="number" step="0.01" min={0} defaultValue={Number(settings?.invoiceVatRate ?? 25)} /></Field>
+          </div>
+          <Field label="Podnožje ponude/računa" hint="npr. zahvala, uvjeti, kontakt"><Textarea name="invoiceFooter" rows={2} defaultValue={settings?.invoiceFooter ?? ""} /></Field>
+          <SubmitButton label="Spremi postavke naplate" />
         </FormSection>
       </form>
     </div>

@@ -2,6 +2,7 @@ import type {
   HvacPlan, HvacContractTerm, HvacRole, HvacAppointmentStatus, HvacWorkOrderStatus,
   HvacInvoiceStatus, HvacQuoteStatus, HvacReminderStatus, HvacInquiryStatus,
   HvacUnitStatus, HvacPriority, HvacSource, HvacCustomerType, HvacUnitType,
+  HvacPaymentMethod,
 } from "@/generated/prisma/client";
 import { hvacPricing } from "./content";
 
@@ -155,6 +156,13 @@ export const PRIORITY: Record<HvacPriority, StatusDef> = {
   NORMAL: { label: "Normalno", tone: "neutral" },
   HIGH: { label: "Visoko", tone: "warn" },
   URGENT: { label: "Hitno", tone: "danger" },
+};
+
+export const PAYMENT_METHOD_LABELS: Record<HvacPaymentMethod, string> = {
+  CASH: "Gotovina",
+  CARD: "Kartica",
+  BANK_TRANSFER: "Transakcijski račun",
+  OTHER: "Ostalo",
 };
 
 /* ---------------- customers / units labels ---------------- */
