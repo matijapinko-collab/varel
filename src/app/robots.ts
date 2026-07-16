@@ -7,7 +7,17 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/administracija", "/admin", "/api", "/go/"],
+        // robots.txt is only an additional instruction — never access control.
+        disallow: [
+          "/administracija",
+          "/administracija/",
+          "/admin",
+          "/hvac/superadministracija",
+          "/hvac/superadministracija/",
+          "/hvac-b2b",
+          "/api",
+          "/go/",
+        ],
       },
     ],
     sitemap: `${site}/sitemap.xml`,

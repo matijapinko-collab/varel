@@ -16,6 +16,23 @@ import {
 
 const PUBLIC_FILE = /\.[^/]+$/;
 
+/** Administration surfaces that must never be indexed, at any depth. */
+const NOINDEX_PREFIXES = ["/administracija", "/hvac/superadministracija"];
+
+function isNoIndexPath(pathname: string): boolean {
+  return NOINDEX_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+/**
+ * Defence-in-depth against search indexing of administration routes.
+ * Authorization is the real control; this header is an additional layer
+ * alongside page metadata, robots.txt and sitemap exclusion.
+ */
+function noIndex(res: NextResponse): NextResponse {
+  res.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet");
+  return res;
+}
+
 function pickLocale(request: NextRequest): string {
   const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value;
   if (cookieLocale && isLocale(cookieLocale)) return cookieLocale;
@@ -41,17 +58,21 @@ export function proxy(request: NextRequest) {
 
   // Admin: optimistic session check (cookie presence only).
   if (pathname.startsWith("/administracija")) {
-    if (pathname === "/administracija") return NextResponse.next();
+    if (pathname === "/administracija") return noIndex(NextResponse.next());
     const hasSession =
       request.cookies.has("authjs.session-token") ||
       request.cookies.has("__Secure-authjs.session-token");
     if (!hasSession) {
       const url = new URL("/administracija", request.url);
       url.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(url);
+      return noIndex(NextResponse.redirect(url));
     }
-    return NextResponse.next();
+    return noIndex(NextResponse.next());
   }
+
+  // HVAC superadministration: never indexed. Real authorization happens in the
+  // page guards (requireSuperadmin) — this only adds the header layer.
+  if (isNoIndexPath(pathname)) return noIndex(NextResponse.next());
 
   // Skip API routes, affiliate redirects, files, and Next.js internals.
   // Varel HVAC is a Croatian-only product served on unprefixed routes

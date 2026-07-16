@@ -6,6 +6,7 @@
  * Run with: npm run db:seed
  */
 import "dotenv/config";
+import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -200,7 +201,14 @@ async function main() {
   console.log(`  roles: ${roleMap.size}, permissions: ${permMap.size}`);
 
   // ---- Owner user -------------------------------------------------
-  const passwordHash = await bcrypt.hash("Zaporka321#", 12);
+  // Never commit a password. Supply SEED_OWNER_PASSWORD for a deterministic
+  // local password; otherwise a random one is generated and printed once
+  // (dev seed only — seeds must never run against production).
+  const seedPassword = process.env.SEED_OWNER_PASSWORD || randomBytes(12).toString("base64url");
+  if (!process.env.SEED_OWNER_PASSWORD) {
+    console.log(`  ⚠ generated owner password (dev only, shown once): ${seedPassword}`);
+  }
+  const passwordHash = await bcrypt.hash(seedPassword, 12);
   const owner = await db.user.upsert({
     where: { email: "matija.pinko@hotmail.com" },
     create: {

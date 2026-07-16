@@ -9,7 +9,9 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: { default: "Varel Admin", template: "%s | Varel Admin" },
-  robots: { index: false, follow: false },
+  // Layered with the X-Robots-Tag header (proxy.ts), robots.txt and sitemap
+  // exclusion. Authorization remains the actual access control.
+  robots: { index: false, follow: false, noarchive: true, nosnippet: true, noimageindex: true, nocache: true },
 };
 
 export default function AdminRootLayout({

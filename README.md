@@ -41,9 +41,11 @@ npm run dev
 | | |
 |---|---|
 | Username | `mpinko` (or email `matija.pinko@hotmail.com`) |
-| Password | `Zaporka321#` |
+| Password | set via `SEED_OWNER_PASSWORD`, otherwise generated and printed once by `npm run db:seed` |
 
-> **Change this password in production** (Admin → Users) and enable 2FA.
+> Passwords are never committed to this repository. Set `SEED_OWNER_PASSWORD` in
+> your local `.env` (gitignored) if you want a deterministic dev password.
+> **Change the password in production** (Admin → Users) and enable 2FA.
 
 ## Documentation
 

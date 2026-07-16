@@ -2489,6 +2489,28 @@ model HvacImportRowError {
   @@map("hvac_import_row_errors")
 }
 
+// Varel-level HVAC superadministrator (NOT a tenant user, NOT the /administracija
+// CMS `User`). Created only by a server-side bootstrap from env secrets; no
+// self-service registration. Password is stored hashed only.
+model HvacSuperadmin {
+  id                 String    @id @default(cuid())
+  username           String    @unique
+  passwordHash       String
+  mustChangePassword Boolean   @default(true)
+  isActive           Boolean   @default(true)
+  twoFactorEnabled   Boolean   @default(false)
+  twoFactorSecret    String?
+  recoveryCodesJson  Json?
+  // Bumped on password change / forced logout → invalidates existing sessions.
+  sessionVersion     Int       @default(0)
+  lastLoginAt        DateTime?
+  passwordChangedAt  DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@map("hvac_superadmins")
+}
+
 model HvacSupportAccessLog {
   id          String    @id @default(cuid())
   tenantId    String
