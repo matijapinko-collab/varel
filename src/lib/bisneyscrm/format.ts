@@ -1,7 +1,41 @@
 import type {
   BisneysCandidateStatus, BisneysDealStatus, BisneysCallOutcome,
-  BisneysMeetingStatus, BisneysNotificationPriority,
+  BisneysMeetingStatus, BisneysNotificationPriority, BisneysActivityType, BisneysActivitySource,
 } from "@/generated/prisma/client";
+
+export const ACTIVITY_TYPE_LABELS: Record<BisneysActivityType, string> = {
+  COMPANY_CREATED: "Nova tvrtka",
+  COMPANY_UPDATED: "Ažuriranje tvrtke",
+  LEAD_CREATED: "Novi lead",
+  LEAD_UPDATED: "Ažuriranje leada",
+  CALL_LOGGED: "Poziv",
+  COMMENT_ADDED: "Komentar",
+  FOLLOW_UP_CREATED: "Follow-up",
+  FOLLOW_UP_COMPLETED: "Follow-up odrađen",
+  PITCH_SENT: "Pitch poslan",
+  PITCH_PRESENTED: "Pitch prezentiran",
+  MEETING_SCHEDULED: "Sastanak zakazan",
+  MEETING_COMPLETED: "Sastanak održan",
+  DEAL_VALUE_CHANGED: "Promjena vrijednosti",
+  DEAL_WON: "Posao dobiven",
+  DEAL_LOST: "Posao izgubljen",
+  CARD_MOVED: "Kartica premještena",
+  CONTACT_ADDED: "Dodan kontakt",
+  DUE_DATE_CHANGED: "Promjena roka",
+  DOCUMENT_UPLOADED: "Dokument dodan",
+  CANDIDATE_CREATED: "Novi kandidat",
+  CANDIDATE_UPDATED: "Ažuriranje kandidata",
+  CANDIDATE_STATUS_CHANGED: "Promjena statusa kandidata",
+  RELATIONSHIP_ADDED: "Dodan odnos",
+  RELATIONSHIP_REMOVED: "Uklonjen odnos",
+};
+
+export const ACTIVITY_SOURCE_LABELS: Record<BisneysActivitySource, string> = {
+  TRELLO: "Trello",
+  BISNEYS_CRM: "CRM",
+  SYSTEM: "Sustav",
+  IMPORT: "Uvoz",
+};
 
 /** Shared label maps + formatting for the CRM (Croatian UI, brief §60). */
 
