@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ensureBisneysBootstrap } from "@/lib/bisneyscrm/bootstrap";
+import { ensureBisneysBootstrap, resyncBisneysPasswords } from "@/lib/bisneyscrm/bootstrap";
 
 /**
  * One-shot, token-gated seeding of the initial CRM users from environment
@@ -20,6 +20,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // ?resync=1 re-hashes existing users' passwords from env (recovery only).
+    if (new URL(req.url).searchParams.get("resync") === "1") {
+      const updated = await resyncBisneysPasswords();
+      return NextResponse.json({ ok: true, resynced: updated });
+    }
     const created = await ensureBisneysBootstrap();
     return NextResponse.json({ ok: true, created });
   } catch (e) {

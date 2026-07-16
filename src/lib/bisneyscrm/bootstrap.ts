@@ -65,3 +65,26 @@ export async function ensureBisneysBootstrap(): Promise<string[]> {
   if (created.length) console.info(`[bisneys] bootstrapped: ${created.join(", ")}`); // no credentials logged
   return created;
 }
+
+/**
+ * Resyncs the two seed users' password hashes from the current environment
+ * values (for existing users). Use only to recover from a mistyped initial
+ * password env var — the plaintext still comes only from env, never logged.
+ */
+export async function resyncBisneysPasswords(): Promise<string[]> {
+  const updated: string[] = [];
+  const resync = async (username: string | undefined, password: string | undefined, mustChange: boolean, label: string) => {
+    const u = username?.trim().toLowerCase();
+    if (!u || !password) return;
+    const existing = await db.bisneysUser.findFirst({ where: { username: u } });
+    if (!existing) return;
+    await db.bisneysUser.update({
+      where: { id: existing.id },
+      data: { passwordHash: await hashPassword(password), mustChangePassword: mustChange, sessionVersion: { increment: 1 } },
+    });
+    updated.push(label);
+  };
+  await resync(process.env.BISNEYS_SUPERADMIN_USERNAME, process.env.BISNEYS_SUPERADMIN_INITIAL_PASSWORD, false, "superadmin");
+  await resync(process.env.BISNEYS_ADMIN_USERNAME, process.env.BISNEYS_ADMIN_INITIAL_PASSWORD, true, "admin");
+  return updated;
+}
