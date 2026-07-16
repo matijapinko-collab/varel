@@ -2771,6 +2771,9 @@ model BisneysPerson {
   citizenship String?
   notes       String?
   source      String?
+  // Normalized contact for dedup + search (brief §7/§43).
+  normalizedEmail String?
+  normalizedPhone String?
   // Relationship Intelligence Engine fields.
   secondaryEmail String?
   secondaryPhone String?
@@ -2809,6 +2812,8 @@ model BisneysPerson {
   @@index([fullName])
   @@index([email])
   @@index([phone])
+  @@index([normalizedEmail])
+  @@index([normalizedPhone])
   @@index([linkedinUrl])
   @@map("bisneys_people")
 }
@@ -3018,7 +3023,6 @@ model BisneysCandidate {
   personId      String                 @unique
   status        BisneysCandidateStatus @default(NEW)
   source        String?
-  recruiterId   String?
   seniority     String?
   yearsExperience Int?
   education     String?
@@ -3036,6 +3040,48 @@ model BisneysCandidate {
   rating        Int?
   interviewResult String?
   notes         String?
+  // --- CandidateProfile (Faza 2, structured; legacy fields above kept) ---
+  profileStatus        BisneysCandidateProfileStatus @default(ACTIVE)
+  candidateSource      BisneysCandidateSource?
+  recruiterId          String?
+  primaryProfessionId  String?
+  primaryDisciplineId  String?
+  educationLevel       BisneysEducationLevel?
+  totalExperienceMonths Int?
+  availabilityStatus   BisneysAvailabilityStatus?
+  availableFrom        DateTime?
+  noticePeriodDays     Int?
+  relocationPreference BisneysRelocationPreference?
+  // Field work / conditions (brief §12)
+  fieldWorkWilling     Boolean @default(false)
+  fieldWorkMaxDays     Int?
+  internationalField   Boolean @default(false)
+  multiDayField        Boolean @default(false)
+  worksSaturdays       Boolean @default(false)
+  worksSundays         Boolean @default(false)
+  shiftWork            Boolean @default(false)
+  nightWork            Boolean @default(false)
+  heightWork           Boolean @default(false)
+  physicalWork         Boolean @default(false)
+  // Salary (brief §13)
+  expectedSalaryMin    Decimal? @db.Decimal(12, 2)
+  expectedSalaryMax    Decimal? @db.Decimal(12, 2)
+  minSalary            Decimal? @db.Decimal(12, 2)
+  salaryCurrency       String?  @default("EUR")
+  salaryIncludesField  Boolean?
+  salaryNegotiable     Boolean?
+  currentEmployerId    String?
+  candidateScore       Decimal? @db.Decimal(5, 2)
+  completenessScore    Decimal? @db.Decimal(5, 2)
+  // Privacy / retention (brief §38)
+  privacyStatus        String?
+  legalBasis           String?
+  consentReceivedAt    DateTime?
+  consentSource        String?
+  retentionUntil       DateTime?
+  doNotContact         Boolean  @default(false)
+  deletionRequestedAt  DateTime?
+  anonymizedAt         DateTime?
   firstContactAt DateTime?
   lastActivityAt DateTime?
   nextFollowUpAt DateTime?
@@ -3052,15 +3098,22 @@ model BisneysCandidate {
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 
-  person        BisneysPerson                   @relation(fields: [personId], references: [id])
-  statusHistory BisneysCandidateStatusHistory[]
-  professions   BisneysCandidateProfession[]
-  candidateJobs BisneysCandidateJob[]
-  employments   BisneysCandidateEmployment[]
-  languages     BisneysCandidateLanguage[]
+  person         BisneysPerson                   @relation(fields: [personId], references: [id])
+  statusHistory  BisneysCandidateStatusHistory[]
+  professions    BisneysCandidateProfession[]
+  candidateJobs  BisneysCandidateJob[]
+  employments    BisneysCandidateEmployment[]
+  languages      BisneysCandidateLanguage[]
+  skills         BisneysCandidateSkill[]
+  certificationRecords BisneysCandidateCertification[]
+  educationRecords BisneysEducationRecord[]
+  drivingLicenses  BisneysCandidateDrivingLicense[]
+  preference     BisneysCandidatePreference?
 
   @@index([status])
+  @@index([profileStatus])
   @@index([recruiterId])
+  @@index([primaryProfessionId])
   @@index([externalId])
   @@map("bisneys_candidates")
 }
@@ -3131,6 +3184,11 @@ model BisneysCandidateLanguage {
   candidateId String
   language    String
   level       String?
+  understand  BisneysLanguageLevel?
+  speak       BisneysLanguageLevel?
+  read        BisneysLanguageLevel?
+  write       BisneysLanguageLevel?
+  certified   Boolean @default(false)
 
   candidate BisneysCandidate @relation(fields: [candidateId], references: [id])
 
@@ -3141,14 +3199,20 @@ model BisneysCandidateLanguage {
 // ---------------- Jobs & professions ----------------
 
 model BisneysProfession {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  name       String   @unique
+  slug       String?  @unique
+  categoryId String?
+  discipline String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
 
+  category             BisneysProfessionCategory?   @relation(fields: [categoryId], references: [id])
   aliases              BisneysProfessionAlias[]
   candidateProfessions BisneysCandidateProfession[]
   jobs                 BisneysJob[]
 
+  @@index([categoryId])
   @@map("bisneys_professions")
 }
 
@@ -4739,4 +4803,237 @@ model ElectroReport {
 
   @@index([companyId, projectId])
   @@map("electro_reports")
+}
+
+// =============================================================
+// BISNEYS CRM — Candidate Database (HR Talent Intelligence)
+// Faza 2: profession catalogue + CandidateProfile evolution +
+// skills / certifications / education / languages / licences.
+// Additive only — the legacy BisneysCandidate.status flow keeps working.
+// =============================================================
+
+enum BisneysCandidateProfileStatus {
+  ACTIVE
+  PASSIVE
+  TEMPORARILY_UNAVAILABLE
+  UNAVAILABLE
+  DO_NOT_CONTACT
+  ARCHIVED
+  DUPLICATE
+  DELETED
+}
+
+enum BisneysEducationLevel {
+  NO_FORMAL_EDUCATION
+  PRIMARY_SCHOOL
+  LOWER_VOCATIONAL
+  VOCATIONAL_QUALIFICATION
+  SECONDARY_SCHOOL
+  SKILLED_WORKER
+  HIGHLY_SKILLED_WORKER
+  COLLEGE
+  BACHELOR
+  MASTER
+  POSTGRADUATE
+  DOCTORATE
+  OTHER
+}
+
+enum BisneysAvailabilityStatus {
+  EMPLOYED_NOT_LOOKING
+  EMPLOYED_OPEN
+  AVAILABLE_IMMEDIATELY
+  AVAILABLE_FROM
+  UNKNOWN
+}
+
+enum BisneysRelocationPreference {
+  NO
+  LOCAL_ONLY
+  CROATIA
+  EU
+  ANYWHERE
+  CONDITIONAL
+}
+
+enum BisneysExperienceLevel {
+  BEGINNER
+  JUNIOR
+  INTERMEDIATE
+  INDEPENDENT
+  SENIOR
+  LEAD
+  EXPERT
+}
+
+enum BisneysLanguageLevel {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+  NATIVE
+  UNKNOWN
+}
+
+enum BisneysCandidateSource {
+  TRELLO
+  WEBSITE
+  META
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  MOJ_POSAO
+  EMAIL
+  PHONE
+  WHATSAPP
+  REFERRAL
+  DIRECT_SOURCING
+  IMPORT
+  OTHER
+}
+
+model BisneysProfessionCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String?  @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  professions BisneysProfession[]
+
+  @@map("bisneys_profession_categories")
+}
+
+// Directed profession relations beyond aliases (related / broader).
+model BisneysRelatedProfession {
+  id                  String   @id @default(cuid())
+  professionId        String
+  relatedProfessionId String
+  relation            String   @default("related") // related | broader | narrower
+  createdAt           DateTime @default(now())
+
+  @@unique([professionId, relatedProfessionId, relation])
+  @@index([professionId])
+  @@map("bisneys_related_professions")
+}
+
+model BisneysSkill {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  slug       String?  @unique
+  category   String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  candidateSkills BisneysCandidateSkill[]
+
+  @@map("bisneys_skills")
+}
+
+model BisneysCandidateSkill {
+  id              String                  @id @default(cuid())
+  candidateId     String
+  skillId         String
+  level           BisneysExperienceLevel?
+  yearsExperience Int?
+  lastUsedYear    Int?
+  confirmed       Boolean                 @default(false)
+  source          String?
+  createdAt       DateTime                @default(now())
+
+  candidate BisneysCandidate @relation(fields: [candidateId], references: [id])
+  skill     BisneysSkill     @relation(fields: [skillId], references: [id])
+
+  @@unique([candidateId, skillId])
+  @@index([skillId])
+  @@map("bisneys_candidate_skills")
+}
+
+model BisneysCertification {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  issuer    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  candidateCertifications BisneysCandidateCertification[]
+
+  @@map("bisneys_certifications")
+}
+
+model BisneysCandidateCertification {
+  id              String    @id @default(cuid())
+  candidateId     String
+  certificationId String?
+  name            String
+  issuer          String?
+  number          String?
+  issuedAt        DateTime?
+  expiresAt       DateTime?
+  documentId      String?
+  validityStatus  String?   @default("VALID")
+  createdAt       DateTime  @default(now())
+
+  candidate     BisneysCandidate      @relation(fields: [candidateId], references: [id])
+  certification BisneysCertification? @relation(fields: [certificationId], references: [id])
+
+  @@index([candidateId])
+  @@index([expiresAt])
+  @@map("bisneys_candidate_certifications")
+}
+
+model BisneysEducationRecord {
+  id            String                 @id @default(cuid())
+  candidateId   String
+  level         BisneysEducationLevel?
+  school        String?
+  field         String?
+  qualification String?
+  endYear       Int?
+  country       String?
+  completed     Boolean                @default(true)
+  createdAt     DateTime               @default(now())
+
+  candidate BisneysCandidate @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId])
+  @@map("bisneys_education_records")
+}
+
+model BisneysCandidateDrivingLicense {
+  id               String    @id @default(cuid())
+  candidateId      String
+  category         String
+  ownVehicle       Boolean   @default(false)
+  activeDriver     Boolean   @default(false)
+  willingUsePrivate Boolean  @default(false)
+  professionalQual Boolean   @default(false)
+  expiresAt        DateTime?
+
+  candidate BisneysCandidate @relation(fields: [candidateId], references: [id])
+
+  @@unique([candidateId, category])
+  @@map("bisneys_candidate_driving_licenses")
+}
+
+model BisneysCandidatePreference {
+  id                    String   @id @default(cuid())
+  candidateId           String   @unique
+  contractType          String?
+  fullTime              Boolean?
+  preferredLocationsJson Json?
+  unacceptableLocationsJson Json?
+  needsAccommodation    Boolean?
+  expectsAccommodationPaid Boolean?
+  dailyTravel           Boolean?
+  maxCommuteKm          Int?
+  maxCommuteMinutes     Int?
+  updatedAt             DateTime @updatedAt
+
+  candidate BisneysCandidate @relation(fields: [candidateId], references: [id])
+
+  @@map("bisneys_candidate_preferences")
 }

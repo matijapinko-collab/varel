@@ -18,6 +18,7 @@ export const BISNEYS_NAV: BisneysNavItem[] = [
   { href: `${BISNEYS_BASE}/contacts`, label: "Kontakti", icon: "contact" },
   { href: `${BISNEYS_BASE}/candidates`, label: "Kandidati", icon: "users" },
   { href: `${BISNEYS_BASE}/jobs`, label: "Poslovi", icon: "briefcase" },
+  { href: `${BISNEYS_BASE}/professions`, label: "Zanimanja", icon: "layers" },
   { href: `${BISNEYS_BASE}/people`, label: "Osobe i odnosi", icon: "network" },
   { href: `${BISNEYS_BASE}/services`, label: "Usluge", icon: "layers" },
   { href: `${BISNEYS_BASE}/finance`, label: "Financije", icon: "euro" },
