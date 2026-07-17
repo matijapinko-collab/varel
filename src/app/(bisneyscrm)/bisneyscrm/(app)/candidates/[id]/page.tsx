@@ -8,6 +8,7 @@ import { BackLink, DetailCard, DetailRow, StatusPill, LinkButton, SelectInput } 
 import { CANDIDATE_STATUS_LABELS, money, shortDate, dateTime } from "@/lib/bisneyscrm/format";
 import { PROFILE_STATUS_LABELS, EDUCATION_LEVEL_LABELS, AVAILABILITY_LABELS, RELOCATION_LABELS, CANDIDATE_SOURCE_LABELS } from "@/lib/bisneyscrm/candidates/labels";
 import { computeCandidateFlags } from "@/lib/bisneyscrm/candidates/derived";
+import { candidateCompanies } from "@/lib/bisneyscrm/companies/candidate-links";
 import { candidateAssessmentSummary } from "@/lib/bisneyscrm/candidates/assessment-score";
 import { ASSESSMENT_KIND_LABELS, ASSESSMENT_RECOMMENDATION_LABELS } from "@/lib/bisneyscrm/candidates/labels";
 import { RecruitmentSection, CandidateFlagBadges } from "@/components/bisneyscrm/candidates/recruitment-section";
@@ -48,9 +49,10 @@ export default async function CandidateProfile({ params }: { params: Promise<{ i
     db.bisneysInterview.findMany({ where: { candidateId: c.id, deletedAt: null }, orderBy: { scheduledAt: "desc" } }),
     computeCandidateFlags(c.id),
   ]);
-  const [assessSummary, assessments] = await Promise.all([
+  const [assessSummary, assessments, companyRels] = await Promise.all([
     candidateAssessmentSummary(c.id),
     db.bisneysCandidateAssessment.findMany({ where: { candidateId: c.id }, orderBy: { createdAt: "desc" }, take: 8, include: { } }),
+    candidateCompanies(c.id),
   ]);
 
   return (
@@ -144,6 +146,23 @@ export default async function CandidateProfile({ params }: { params: Promise<{ i
       </div>
 
       <RecruitmentSection candidateId={c.id} applications={applications} contacts={contacts} interviews={interviews} jobs={jobs} />
+
+      <div className="mt-4">
+        <DetailCard title={`Tvrtke (${companyRels.length})`}>
+          {companyRels.length === 0 ? (
+            <p className="text-sm text-muted">Nema povezanih tvrtki.</p>
+          ) : (
+            <ul className="divide-y divide-border text-sm">
+              {companyRels.map((r, i) => (
+                <li key={`${r.companyId}-${i}`} className="flex items-center justify-between py-2">
+                  <Link href={`/bisneyscrm/companies/${r.companyId}`} className="font-medium hover:text-indigo-500">{r.name}</Link>
+                  <span className="rounded-md bg-indigo-500/10 px-2 py-0.5 text-xs text-indigo-500">{r.relationLabel}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DetailCard>
+      </div>
 
       <div className="mt-4">
         <DetailCard title="Procjene" action={<LinkButton href={`/bisneyscrm/candidates/${c.id}/assess`} variant="ghost">Nova procjena</LinkButton>}>

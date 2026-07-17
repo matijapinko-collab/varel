@@ -9,6 +9,8 @@ import { SALES_STATUS_LABELS } from "@/lib/bisneyscrm/trello/mapping";
 import { money, shortDate, dateTime } from "@/lib/bisneyscrm/format";
 import { listInteractions } from "@/lib/bisneyscrm/interactions/service";
 import { InteractionsTimeline, type InteractionRow } from "@/components/bisneyscrm/companies/interactions-timeline";
+import { companyCandidateSummary } from "@/lib/bisneyscrm/companies/candidate-links";
+import { CompanyCandidates } from "@/components/bisneyscrm/companies/company-candidates";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,12 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
   const activities = await db.bisneysActivity.findMany({
     where: { companyId: c.id }, orderBy: { occurredAt: "desc" }, take: 15,
   });
+  const [candidateSummary, candidateOptions] = await Promise.all([
+    companyCandidateSummary(c.id),
+    db.bisneysCandidate.findMany({ where: { deletedAt: null }, orderBy: { createdAt: "desc" }, take: 300, include: { person: { select: { fullName: true } } } }),
+  ]);
+  const candOpts = candidateOptions.map((c) => ({ id: c.id, name: c.person.fullName }));
+
   const interactionRows = await listInteractions({ companyId: c.id }, 200);
   const interactions: InteractionRow[] = interactionRows.map((i) => ({
     id: i.id, type: i.type, source: i.source, rawContent: i.rawContent, title: i.title,
@@ -101,6 +109,10 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
             </ul>
           )}
         </DetailCard>
+      </div>
+
+      <div className="mt-4">
+        <CompanyCandidates companyId={c.id} summary={candidateSummary} candidateOptions={candOpts} />
       </div>
 
       <div className="mt-4">

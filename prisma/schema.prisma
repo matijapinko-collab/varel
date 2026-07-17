@@ -2876,6 +2876,7 @@ model BisneysCompany {
   jobs            BisneysJob[]
   companyServices BisneysCompanyService[]
   employments     BisneysEmployment[]
+  candidateLinks  BisneysCandidateCompanyLink[]
 
   @@index([status])
   @@index([ownerId])
@@ -3115,6 +3116,7 @@ model BisneysCandidate {
   interviews     BisneysInterview[]
   assessments    BisneysCandidateAssessment[]
   poolMemberships BisneysTalentPoolMember[]
+  companyLinks   BisneysCandidateCompanyLink[]
 
   @@index([status])
   @@index([profileStatus])
@@ -5436,4 +5438,49 @@ model BisneysInteraction {
   @@index([type])
   @@index([occurredAt])
   @@map("bisneys_interactions")
+}
+
+// --- Company Intelligence Faza 5: candidate ↔ company relations ---
+
+enum BisneysCompanyRelationType {
+  CURRENT_EMPLOYEE
+  FORMER_EMPLOYEE
+  APPLICANT
+  SOURCED_FROM_COMPANY
+  REFERRED_BY_EMPLOYEE
+  SENT_TO_CLIENT
+  CLIENT_INTERVIEW
+  OFFERED
+  HIRED
+  REJECTED_BY_CLIENT
+  PLACEMENT
+  POTENTIAL_CONTACT
+}
+
+/**
+ * An explicit, typed relation between a candidate and a company (Faza 5). A
+ * candidate can hold several relations with the same company (e.g. former
+ * employee AND sent-to-client). Employment/application/referral history stays
+ * in its own models; the company "Kandidati" view aggregates all of them.
+ */
+model BisneysCandidateCompanyLink {
+  id          String                     @id @default(cuid())
+  candidateId String
+  companyId   String
+  relation    BisneysCompanyRelationType
+  jobId       String?
+  note        String?
+  fee         Decimal?                   @db.Decimal(12, 2)
+  eventAt     DateTime?
+  createdById String?
+  createdAt   DateTime                   @default(now())
+  deletedAt   DateTime?
+
+  candidate BisneysCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  company   BisneysCompany   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([candidateId])
+  @@index([relation])
+  @@map("bisneys_candidate_company_links")
 }
