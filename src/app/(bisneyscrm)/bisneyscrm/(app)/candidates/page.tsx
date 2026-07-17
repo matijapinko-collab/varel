@@ -77,6 +77,7 @@ export default async function CandidatesList({ searchParams }: { searchParams: P
     <div>
       <BisneysPageHeader title="Kandidati" description={`${total} kandidata u bazi`}>
         <LinkButton href="/bisneyscrm/talent-pools" variant="ghost">Talent pools</LinkButton>
+        <LinkButton href="/bisneyscrm/candidates/import" variant="ghost">Uvoz</LinkButton>
         <LinkButton href="/bisneyscrm/professions" variant="ghost">Zanimanja</LinkButton>
         <LinkButton href="/bisneyscrm/candidates/novi">Novi kandidat</LinkButton>
       </BisneysPageHeader>
