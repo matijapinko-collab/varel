@@ -2,6 +2,7 @@ import { requireBisneysSuperadmin } from "@/lib/bisneyscrm/auth/guard";
 import { db } from "@/lib/db";
 import { getSafeConnection } from "@/lib/bisneyscrm/trello/connection";
 import { SALES_STATUS_LABELS, SALES_STATUS_VALUES } from "@/lib/bisneyscrm/trello/mapping";
+import Link from "next/link";
 import { BisneysPageHeader } from "@/components/bisneyscrm/shared/module-page";
 import { TrelloCredentialsForm } from "@/components/bisneyscrm/trello/credentials-form";
 import { PendingButton } from "@/components/bisneyscrm/trello/pending-button";
@@ -141,6 +142,13 @@ export default async function TrelloSettings() {
               <form action={recreateTrelloWebhook}><PendingButton className={btn} pendingLabel="…">Ponovno kreiraj webhook</PendingButton></form>
             </div>
             <p className="mt-3 text-xs text-muted">Webhook URL: <code>{process.env.BISNEYS_TRELLO_CALLBACK_URL ?? `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/bisneyscrm/trello/webhook`}</code></p>
+          </section>
+
+          {/* Candidate label mapping (Faza 10) */}
+          <section className="mb-6 rounded-2xl border border-border bg-card p-6">
+            <h2 className="mb-1 text-base font-semibold">Kandidati iz Trella</h2>
+            <p className="mb-4 text-sm text-muted">Mapiraj labele delivery-kartica na zanimanje / status / tag; parser vadi email i telefon iz teksta kartice.</p>
+            <Link href="/bisneyscrm/settings/trello/labels" className={btnPrimary}>Mapiranje labela → kandidati</Link>
           </section>
 
           {/* Sync log */}

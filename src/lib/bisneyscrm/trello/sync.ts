@@ -5,6 +5,13 @@ import { trello, type TrelloActionDto, type TrelloCardDto, type TrelloCreds } fr
 import { getConnection, getCreds, setStatus, updateConnection } from "./connection";
 import { defaultStatusForListName } from "./mapping";
 import { commentActivityType, isCallComment } from "./activities";
+import { parseCandidateFromCard, type CandidateLabelMap } from "@/lib/bisneyscrm/import/trello-parse";
+import { getCandidateLabelMap, labelNames } from "./candidate-map";
+import { normalizeEmail, normalizePhone } from "@/lib/bisneyscrm/forms";
+import { CANDIDATE_STATUS_VALUES } from "@/lib/bisneyscrm/format";
+
+/** Card shape used for candidate parsing (name + description + raw labels). */
+type CandidateCard = { id: string; name?: string; desc?: string | null; labelsJson?: unknown };
 
 /**
  * Trello → Bisneys sync (brief §16–18). Pulls board/list/card/member data into
@@ -50,27 +57,65 @@ async function ensureCompanyFromCard(card: { id: string; name?: string }, status
   return created.id;
 }
 
-async function ensureCandidateFromCard(card: { id: string; name?: string }): Promise<string> {
-  const existing = await db.bisneysCandidate.findFirst({ where: { externalId: card.id }, select: { id: true } });
-  if (existing) return existing.id;
+const validCandidateStatus = (s: string | null): string | null =>
+  s && (CANDIDATE_STATUS_VALUES as string[]).includes(s) ? s : null;
+
+/**
+ * Maps a delivery-board Trello card onto a candidate, enriching from the card
+ * parser + label map (Faza 10): email/phone from the title/description, tags +
+ * profession + pipeline status from mapped labels. On an existing candidate it
+ * only fills blanks and merges tags (idempotent — safe to re-run on every sync).
+ */
+async function ensureCandidateFromCard(card: CandidateCard, labelMap?: CandidateLabelMap): Promise<string> {
+  const map = labelMap ?? (await getCandidateLabelMap());
+  const parsed = parseCandidateFromCard({ name: card.name ?? "", desc: card.desc, labels: labelNames(card.labelsJson) }, map);
+  const mappedStatus = validCandidateStatus(parsed.status);
+
+  const existing = await db.bisneysCandidate.findFirst({
+    where: { externalId: card.id },
+    select: { id: true, personId: true, tags: true, primaryProfessionId: true },
+  });
+
+  if (existing) {
+    // Enrich: fill missing contact fields, merge tags, set profession if absent.
+    const person = await db.bisneysPerson.findUnique({ where: { id: existing.personId }, select: { email: true, phone: true } });
+    const personPatch: Record<string, unknown> = {};
+    if (!person?.email && parsed.email) { personPatch.email = parsed.email; personPatch.normalizedEmail = normalizeEmail(parsed.email); }
+    if (!person?.phone && parsed.phone) { personPatch.phone = parsed.phone; personPatch.normalizedPhone = normalizePhone(parsed.phone); }
+    if (Object.keys(personPatch).length) await db.bisneysPerson.update({ where: { id: existing.personId }, data: personPatch });
+
+    const mergedTags = Array.from(new Set([...(existing.tags ?? []), ...parsed.tags]));
+    const candPatch: Record<string, unknown> = { lastSyncedAt: new Date() };
+    if (mergedTags.length !== (existing.tags ?? []).length) candPatch.tags = mergedTags;
+    if (!existing.primaryProfessionId && parsed.professionId) candPatch.primaryProfessionId = parsed.professionId;
+    await db.bisneysCandidate.update({ where: { id: existing.id }, data: candPatch });
+    if (!existing.primaryProfessionId && parsed.professionId) {
+      await db.bisneysCandidateProfession.create({ data: { candidateId: existing.id, professionId: parsed.professionId, isPrimary: true } }).catch(() => {});
+    }
+    return existing.id;
+  }
+
   const person = await db.bisneysPerson.create({
     data: {
-      fullName: card.name?.trim() || "(bez imena)",
-      externalId: card.id,
-      externalSource: "TRELLO",
-      source: "TRELLO",
+      fullName: parsed.fullName || card.name?.trim() || "(bez imena)",
+      email: parsed.email, normalizedEmail: normalizeEmail(parsed.email),
+      phone: parsed.phone, normalizedPhone: normalizePhone(parsed.phone),
+      externalId: card.id, externalSource: "TRELLO", source: "TRELLO",
     },
   });
   const created = await db.bisneysCandidate.create({
     data: {
       personId: person.id,
-      status: "NEW",
-      externalId: card.id,
-      externalSource: "TRELLO",
-      syncStatus: "SYNCED",
-      lastSyncedAt: new Date(),
+      status: (mappedStatus ?? "NEW") as never,
+      candidateSource: "TRELLO",
+      primaryProfessionId: parsed.professionId,
+      tags: parsed.tags,
+      externalId: card.id, externalSource: "TRELLO", syncStatus: "SYNCED", lastSyncedAt: new Date(),
     },
   });
+  if (parsed.professionId) {
+    await db.bisneysCandidateProfession.create({ data: { candidateId: created.id, professionId: parsed.professionId, isPrimary: true } }).catch(() => {});
+  }
   return created.id;
 }
 
@@ -255,6 +300,7 @@ async function syncBoardData(creds: TrelloCreds, boardId: string, boardKind: Boa
     });
   }
 
+  const labelMap = boardKind === "delivery" ? await getCandidateLabelMap() : undefined;
   for (const c of cards as TrelloCardDto[]) {
     await db.bisneysTrelloCard.upsert({
       where: { externalId: c.id },
@@ -287,7 +333,7 @@ async function syncBoardData(creds: TrelloCreds, boardId: string, boardKind: Boa
     // cards with no recent action in the imported window.
     if (!c.closed) {
       if (boardKind === "sales") await ensureCompanyFromCard({ id: c.id, name: c.name }, await listMappedStatus(c.idList));
-      else await ensureCandidateFromCard({ id: c.id, name: c.name });
+      else await ensureCandidateFromCard({ id: c.id, name: c.name, desc: c.desc, labelsJson: c.labels }, labelMap);
     }
   }
 }
@@ -376,6 +422,28 @@ export async function runReconcile(): Promise<SyncResult> {
     await db.bisneysTrelloSyncLog.update({ where: { id: log.id }, data: { status: "ERROR", finishedAt: new Date(), message: msg } });
     return { ok: false, processed, error: msg };
   }
+}
+
+/**
+ * Re-applies the parser + label map to every synced card that is already linked
+ * to a candidate (Faza 10). Enrich-only — it never creates new candidates (that
+ * happens during live sync, which knows the board kind), so running it can't
+ * turn sales cards into candidates.
+ */
+export async function reparseCandidatesFromCards(labelMap: CandidateLabelMap): Promise<{ updated: number }> {
+  const cards = await db.bisneysTrelloCard.findMany({
+    where: { closed: false },
+    select: { externalId: true, name: true, description: true, labelsJson: true },
+    take: 5000,
+  });
+  let updated = 0;
+  for (const c of cards) {
+    const linked = await db.bisneysCandidate.findFirst({ where: { externalId: c.externalId }, select: { id: true } });
+    if (!linked) continue;
+    await ensureCandidateFromCard({ id: c.externalId, name: c.name, desc: c.description, labelsJson: c.labelsJson }, labelMap);
+    updated++;
+  }
+  return { updated };
 }
 
 /** Board kind for a given board id (used by the webhook). */

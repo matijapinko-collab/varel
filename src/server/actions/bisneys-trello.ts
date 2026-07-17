@@ -6,9 +6,15 @@ import { requireBisneysSuperadmin } from "@/lib/bisneyscrm/auth/guard";
 import { bisneysAudit } from "@/lib/bisneyscrm/audit";
 import { trello } from "@/lib/bisneyscrm/trello/client";
 import { getCreds, saveCreds, updateConnection, setStatus, disconnect } from "@/lib/bisneyscrm/trello/connection";
-import { runInitialSync, runReconcile } from "@/lib/bisneyscrm/trello/sync";
+import { runInitialSync, runReconcile, reparseCandidatesFromCards } from "@/lib/bisneyscrm/trello/sync";
+import { getCandidateLabelMap, setCandidateLabelMap, distinctCandidateLabels } from "@/lib/bisneyscrm/trello/candidate-map";
+import type { CandidateLabelMap } from "@/lib/bisneyscrm/import/trello-parse";
 import type { BisneysSalesStatus } from "@/generated/prisma/client";
 import { SALES_STATUS_VALUES } from "@/lib/bisneyscrm/trello/mapping";
+import { str, opt } from "@/lib/bisneyscrm/forms";
+import { CANDIDATE_STATUS_VALUES } from "@/lib/bisneyscrm/format";
+
+const LABELS_PAGE = "/bisneyscrm/settings/trello/labels";
 
 const PAGE = "/bisneyscrm/settings/trello";
 function revalidate() {
@@ -176,4 +182,41 @@ export async function disconnectTrello(): Promise<void> {
   await disconnect();
   await bisneysAudit({ action: "trello_disconnected", entityType: "trello" });
   revalidate();
+}
+
+/* ---------------- Faza 10: candidate label mapping ---------------- */
+
+/**
+ * Persists the Trello label → candidate mapping. Reads one row per distinct
+ * label: `prof:<label>`, `status:<label>`, `tag:<label>`. Empty rows are dropped.
+ */
+export async function saveCandidateLabelMap(form: FormData): Promise<void> {
+  await requireBisneysSuperadmin();
+  const labels = await distinctCandidateLabels();
+  const map: CandidateLabelMap = {};
+  for (const label of labels) {
+    const professionId = opt(form.get(`prof:${label}`));
+    const statusRaw = str(form.get(`status:${label}`));
+    const status = (CANDIDATE_STATUS_VALUES as string[]).includes(statusRaw) ? statusRaw : undefined;
+    const tag = opt(form.get(`tag:${label}`));
+    if (!professionId && !status && !tag) continue;
+    map[label] = {
+      ...(professionId ? { professionId } : {}),
+      ...(status ? { status } : {}),
+      ...(tag ? { tag } : {}),
+    };
+  }
+  await setCandidateLabelMap(map);
+  await bisneysAudit({ action: "trello_label_map_saved", entityType: "trello", after: { labels: Object.keys(map).length } });
+  revalidatePath(LABELS_PAGE);
+}
+
+/** Re-applies the current label map + parser to every synced delivery card. */
+export async function reparseTrelloCandidatesAction(): Promise<void> {
+  await requireBisneysSuperadmin();
+  const map = await getCandidateLabelMap();
+  const res = await reparseCandidatesFromCards(map);
+  await bisneysAudit({ action: "trello_candidates_reparsed", entityType: "candidate", after: res });
+  revalidatePath(LABELS_PAGE);
+  revalidatePath("/bisneyscrm/candidates");
 }
