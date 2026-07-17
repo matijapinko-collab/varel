@@ -20,6 +20,7 @@ export const BISNEYS_NAV: BisneysNavItem[] = [
   { href: `${BISNEYS_BASE}/jobs`, label: "Poslovi", icon: "briefcase" },
   { href: `${BISNEYS_BASE}/professions`, label: "Zanimanja", icon: "layers" },
   { href: `${BISNEYS_BASE}/assessments`, label: "Procjene", icon: "clipboard" },
+  { href: `${BISNEYS_BASE}/talent-pools`, label: "Talent pools", icon: "star" },
   { href: `${BISNEYS_BASE}/people`, label: "Osobe i odnosi", icon: "network" },
   { href: `${BISNEYS_BASE}/services`, label: "Usluge", icon: "layers" },
   { href: `${BISNEYS_BASE}/finance`, label: "Financije", icon: "euro" },

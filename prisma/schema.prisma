@@ -3093,6 +3093,7 @@ model BisneysCandidate {
   syncStatus    BisneysSyncStatus?
   rawData       Json?
   possibleDuplicate Boolean            @default(false)
+  tags          String[]               @default([])
   deletedAt     DateTime?
   deletedById   String?
   createdAt     DateTime               @default(now())
@@ -3113,6 +3114,7 @@ model BisneysCandidate {
   contactAttempts BisneysContactAttempt[]
   interviews     BisneysInterview[]
   assessments    BisneysCandidateAssessment[]
+  poolMemberships BisneysTalentPoolMember[]
 
   @@index([status])
   @@index([profileStatus])
@@ -5329,4 +5331,54 @@ model BisneysAssessmentAnswer {
 
   @@index([candidateAssessmentId])
   @@map("bisneys_assessment_answers")
+}
+
+// --- Faza 6: saved views, talent pools, bulk-action tagging ---
+
+/** A named, reusable filter set for a list view (spremljeni prikaz). */
+model BisneysSavedView {
+  id         String   @id @default(cuid())
+  name       String
+  entityType String   @default("CANDIDATE")
+  userId     String
+  filters    Json
+  isShared   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([entityType])
+  @@map("bisneys_saved_views")
+}
+
+/** A curated group of candidates (talent pool). */
+model BisneysTalentPool {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String?
+  ownerUserId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members BisneysTalentPoolMember[]
+
+  @@index([ownerUserId])
+  @@map("bisneys_talent_pools")
+}
+
+model BisneysTalentPoolMember {
+  id            String   @id @default(cuid())
+  poolId        String
+  candidateId   String
+  addedByUserId String?
+  note          String?
+  addedAt       DateTime @default(now())
+
+  pool      BisneysTalentPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  candidate BisneysCandidate  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([poolId, candidateId])
+  @@index([candidateId])
+  @@map("bisneys_talent_pool_members")
 }
