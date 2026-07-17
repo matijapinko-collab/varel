@@ -10,6 +10,7 @@ import {
   testTrelloConnection, refreshTrelloBoards, saveBoardSelection, saveListMapping,
   runTrelloInitialSync, runTrelloReconcile, recreateTrelloWebhook, disconnectTrello,
 } from "@/server/actions/bisneys-trello";
+import { backfillInteractions } from "@/server/actions/bisneys-interactions";
 
 export const dynamic = "force-dynamic";
 
@@ -140,6 +141,7 @@ export default async function TrelloSettings() {
               <form action={runTrelloInitialSync}><PendingButton className={btnPrimary} pendingLabel="Sinkronizacija…">Pokreni inicijalnu sinkronizaciju</PendingButton></form>
               <form action={runTrelloReconcile}><PendingButton className={btn} pendingLabel="…">Reconcile</PendingButton></form>
               <form action={recreateTrelloWebhook}><PendingButton className={btn} pendingLabel="…">Ponovno kreiraj webhook</PendingButton></form>
+              <form action={backfillInteractions}><PendingButton className={btn} pendingLabel="Obrada…">Backfill interakcija iz komentara</PendingButton></form>
             </div>
             <p className="mt-3 text-xs text-muted">Webhook URL: <code>{process.env.BISNEYS_TRELLO_CALLBACK_URL ?? `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/bisneyscrm/trello/webhook`}</code></p>
           </section>

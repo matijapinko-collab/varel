@@ -7,6 +7,8 @@ import { BisneysPageHeader } from "@/components/bisneyscrm/shared/module-page";
 import { BackLink, DetailCard, DetailRow, StatusPill, LinkButton } from "@/components/bisneyscrm/shared/ui";
 import { SALES_STATUS_LABELS } from "@/lib/bisneyscrm/trello/mapping";
 import { money, shortDate, dateTime } from "@/lib/bisneyscrm/format";
+import { listInteractions } from "@/lib/bisneyscrm/interactions/service";
+import { InteractionsTimeline, type InteractionRow } from "@/components/bisneyscrm/companies/interactions-timeline";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,12 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
   const activities = await db.bisneysActivity.findMany({
     where: { companyId: c.id }, orderBy: { occurredAt: "desc" }, take: 15,
   });
+  const interactionRows = await listInteractions({ companyId: c.id }, 200);
+  const interactions: InteractionRow[] = interactionRows.map((i) => ({
+    id: i.id, type: i.type, source: i.source, rawContent: i.rawContent, title: i.title,
+    actorName: i.actorName, parsedContactName: i.parsedContactName, needsReview: i.needsReview,
+    edited: i.edited, externalUrl: i.externalUrl, occurredAt: i.occurredAt.toISOString(),
+  }));
 
   return (
     <div className="max-w-4xl">
@@ -93,6 +101,10 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
             </ul>
           )}
         </DetailCard>
+      </div>
+
+      <div className="mt-4">
+        <InteractionsTimeline companyId={c.id} interactions={interactions} />
       </div>
 
       <div className="mt-4">

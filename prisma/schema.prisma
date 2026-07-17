@@ -5382,3 +5382,58 @@ model BisneysTalentPoolMember {
   @@index([candidateId])
   @@map("bisneys_talent_pool_members")
 }
+
+// --- Company Intelligence Faza 1: normalized interactions ---
+
+enum BisneysInteractionType {
+  TRELLO_COMMENT
+  OUTBOUND_CALL
+  INBOUND_CALL
+  EMAIL
+  MEETING_NOTE
+  FOLLOW_UP
+  PITCH
+  CLIENT_FEEDBACK
+  DEAL_NOTE
+  GENERAL_NOTE
+}
+
+/**
+ * A normalized interaction (call/comment/email/note) unified across Trello and
+ * Bisneys CRM. The original text is always preserved in rawContent; the parser
+ * adds an interpreted type + contact name + confidence without ever mutating
+ * the source. externalId (Trello action id) keeps webhook processing idempotent.
+ */
+model BisneysInteraction {
+  id                String                 @id @default(cuid())
+  companyId         String?
+  personId          String?
+  candidateId       String?
+  dealId            String?
+  jobId             String?
+  actorUserId       String?
+  actorName         String?
+  externalActorId   String?
+  type              BisneysInteractionType @default(GENERAL_NOTE)
+  source            BisneysActivitySource  @default(BISNEYS_CRM)
+  title             String?
+  rawContent        String?
+  parsedContactName String?
+  parsingConfidence Float?
+  needsReview       Boolean                @default(false)
+  edited            Boolean                @default(false)
+  externalId        String?                @unique
+  externalUrl       String?
+  metadata          Json?
+  occurredAt        DateTime               @default(now())
+  editedAt          DateTime?
+  createdAt         DateTime               @default(now())
+  deletedAt         DateTime?
+
+  @@index([companyId])
+  @@index([candidateId])
+  @@index([personId])
+  @@index([type])
+  @@index([occurredAt])
+  @@map("bisneys_interactions")
+}

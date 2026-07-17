@@ -9,6 +9,7 @@ import { parseCandidateFromCard, type CandidateLabelMap } from "@/lib/bisneyscrm
 import { getCandidateLabelMap, labelNames } from "./candidate-map";
 import { normalizeEmail, normalizePhone } from "@/lib/bisneyscrm/forms";
 import { CANDIDATE_STATUS_VALUES } from "@/lib/bisneyscrm/format";
+import { recordTrelloComment, deleteTrelloInteraction } from "@/lib/bisneyscrm/interactions/service";
 
 /** Card shape used for candidate parsing (name + description + raw labels). */
 type CandidateCard = { id: string; name?: string; desc?: string | null; labelsJson?: unknown };
@@ -229,8 +230,38 @@ export async function processTrelloAction(action: TrelloActionDto, boardKind: Bo
               data: { note: text, byMemberId: actorMemberId, source: "TRELLO", companyId, candidateId },
             });
           }
+          // Normalized interaction (full text preserved + parsed type/contact).
+          await recordTrelloComment({
+            externalId: action.id, rawContent: text, actorName, externalActorId: actorMemberId,
+            companyId, candidateId, occurredAt: action.date ? new Date(action.date) : null,
+          });
         }
         break;
+      }
+      case "updateComment": {
+        // Trello nests the edited comment under data.action; re-record by its id.
+        const commentAction = (data as { action?: { id?: string; text?: string } }).action;
+        const commentId = commentAction?.id;
+        const text = String(commentAction?.text ?? "");
+        await bindEntity();
+        if (commentId) {
+          await db.bisneysComment.updateMany({ where: { externalId: commentId }, data: { body: text } });
+          await recordTrelloComment({
+            externalId: commentId, rawContent: text, actorName, externalActorId: actorMemberId,
+            companyId, candidateId, occurredAt: action.date ? new Date(action.date) : null, edited: true,
+          });
+        }
+        await markProcessed(action.id);
+        return "processed";
+      }
+      case "deleteComment": {
+        const commentId = (data as { action?: { id?: string } }).action?.id;
+        if (commentId) {
+          await deleteTrelloInteraction(commentId);
+          await db.bisneysComment.deleteMany({ where: { externalId: commentId } });
+        }
+        await markProcessed(action.id);
+        return "processed";
       }
       case "addAttachmentToCard":
         type = "DOCUMENT_UPLOADED";
