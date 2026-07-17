@@ -13,6 +13,7 @@ import { companyCandidateSummary } from "@/lib/bisneyscrm/companies/candidate-li
 import { CompanyCandidates } from "@/components/bisneyscrm/companies/company-candidates";
 import { companyAccessSummary } from "@/lib/bisneyscrm/companies/access";
 import { CompanyWallCard, type CompanyWallProfileView } from "@/components/bisneyscrm/companies/companywall-card";
+import { CompanyTabs } from "@/components/bisneyscrm/companies/company-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +72,22 @@ export default async function CompanyProfile({ params, searchParams }: { params:
         </form>
       </BisneysPageHeader>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+        {cwProfile && <span className="rounded-full bg-blue-500/10 px-2 py-1 font-medium text-blue-600">CompanyWall ✓</span>}
+        {c.externalId && <span className="rounded-full bg-sky-500/10 px-2 py-1 font-medium text-sky-600">Trello povezano</span>}
+        {c.deals.length > 0 && <span className="rounded-full bg-indigo-500/10 px-2 py-1 font-medium text-indigo-600">Deal</span>}
+        {(cwProfile?.oib ?? c.oib) && <span className="rounded-full border border-border px-2 py-1 text-muted">OIB: {cwProfile?.oib ?? c.oib}</span>}
+        {c.city && <span className="rounded-full border border-border px-2 py-1 text-muted">{c.city}</span>}
+        {cwProfile?.employeeCount != null && <span className="rounded-full border border-border px-2 py-1 text-muted">{cwProfile.employeeCount} zaposlenih</span>}
+        <span className="rounded-full border border-border px-2 py-1 text-muted">Pipeline: {money(c.dealValue, c.currency ?? "EUR")}</span>
+        {c.nextFollowUpAt && <span className="rounded-full bg-amber-500/10 px-2 py-1 text-amber-600">Follow-up: {shortDate(c.nextFollowUpAt)}</span>}
+        {interactions[0] && <span className="rounded-full border border-border px-2 py-1 text-muted">Zadnja interakcija: {shortDate(new Date(interactions[0].occurredAt))}</span>}
+      </div>
+
+      <CompanyTabs tabs={[
+        { key: "pregled", label: "Pregled", content: (
+        <div className="space-y-4">
+        <div className="grid gap-4 lg:grid-cols-2">
         <DetailCard title="Osnovni podaci">
           <dl>
             <DetailRow label="Pravni naziv">{c.legalName ?? "—"}</DetailRow>
@@ -157,16 +173,16 @@ export default async function CompanyProfile({ params, searchParams }: { params:
         </DetailCard>
       </div>
 
-      <div className="mt-4">
-        <CompanyCandidates companyId={c.id} summary={candidateSummary} candidateOptions={candOpts} />
-      </div>
-
-      <div className="mt-4">
-        <InteractionsTimeline companyId={c.id} interactions={interactions} />
-      </div>
-
-      <div className="mt-4">
-        <DetailCard title="Aktivnosti">
+        </div>
+        ) },
+        { key: "interakcije", label: "Interakcije", badge: interactions.length, content: (
+          <InteractionsTimeline companyId={c.id} interactions={interactions} />
+        ) },
+        { key: "kandidati", label: "Kandidati", badge: candidateSummary.counts.total, content: (
+          <CompanyCandidates companyId={c.id} summary={candidateSummary} candidateOptions={candOpts} />
+        ) },
+        { key: "aktivnosti", label: "Aktivnosti", content: (
+          <DetailCard title="Aktivnosti">
           {activities.length === 0 ? (
             <p className="text-sm text-muted">Još nema aktivnosti za ovu tvrtku.</p>
           ) : (
@@ -183,8 +199,9 @@ export default async function CompanyProfile({ params, searchParams }: { params:
               ))}
             </ul>
           )}
-        </DetailCard>
-      </div>
+          </DetailCard>
+        ) },
+      ]} />
     </div>
   );
 }
