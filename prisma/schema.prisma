@@ -3112,6 +3112,7 @@ model BisneysCandidate {
   applications   BisneysCandidateApplication[]
   contactAttempts BisneysContactAttempt[]
   interviews     BisneysInterview[]
+  assessments    BisneysCandidateAssessment[]
 
   @@index([status])
   @@index([profileStatus])
@@ -5222,4 +5223,110 @@ model BisneysInterviewStatusHistory {
 
   @@index([interviewId])
   @@map("bisneys_interview_status_history")
+}
+
+// =============================================================
+// BISNEYS CRM — Candidate DB Faza 5: assessments (Upitnik + Intervju)
+// =============================================================
+
+enum BisneysAssessmentKind {
+  QUESTIONNAIRE
+  INTERVIEW
+}
+
+enum BisneysAssessmentRecommendation {
+  STRONG_YES
+  YES
+  MAYBE
+  NO
+  STRONG_NO
+}
+
+model BisneysAssessmentTemplate {
+  id           String                @id @default(cuid())
+  name         String
+  kind         BisneysAssessmentKind
+  professionId String?
+  categoryId   String?
+  description  String?
+  isActive     Boolean               @default(true)
+  isSystem     Boolean               @default(false)
+  createdAt    DateTime              @default(now())
+
+  sections BisneysAssessmentSection[]
+
+  @@index([kind])
+  @@index([professionId])
+  @@map("bisneys_assessment_templates")
+}
+
+model BisneysAssessmentSection {
+  id         String @id @default(cuid())
+  templateId String
+  title      String
+  sortOrder  Int    @default(0)
+
+  template  BisneysAssessmentTemplate  @relation(fields: [templateId], references: [id])
+  questions BisneysAssessmentQuestion[]
+
+  @@index([templateId])
+  @@map("bisneys_assessment_sections")
+}
+
+model BisneysAssessmentQuestion {
+  id            String  @id @default(cuid())
+  sectionId     String
+  text          String
+  maxScore      Int     @default(10)
+  weight        Int     @default(1)
+  isEliminatory Boolean @default(false)
+  sortOrder     Int     @default(0)
+
+  section BisneysAssessmentSection @relation(fields: [sectionId], references: [id])
+
+  @@index([sectionId])
+  @@map("bisneys_assessment_questions")
+}
+
+model BisneysCandidateAssessment {
+  id              String                           @id @default(cuid())
+  candidateId     String
+  templateId      String?
+  kind            BisneysAssessmentKind
+  applicationId   String?
+  interviewId     String?
+  totalScore      Decimal?                         @db.Decimal(8, 2)
+  maxScore        Decimal?                         @db.Decimal(8, 2)
+  normalizedScore Decimal?                         @db.Decimal(4, 2)
+  recommendation  BisneysAssessmentRecommendation?
+  eliminated      Boolean                          @default(false)
+  note            String?
+  byUserId        String?
+  createdAt       DateTime                         @default(now())
+
+  candidate BisneysCandidate          @relation(fields: [candidateId], references: [id])
+  answers   BisneysAssessmentAnswer[]
+
+  @@index([candidateId])
+  @@index([kind])
+  @@map("bisneys_candidate_assessments")
+}
+
+model BisneysAssessmentAnswer {
+  id                   String  @id @default(cuid())
+  candidateAssessmentId String
+  questionId           String?
+  questionText         String?
+  category             String?
+  score                Int?
+  maxScore             Int?
+  answer               String?
+  comment              String?
+  isEliminatory        Boolean @default(false)
+  eliminated           Boolean @default(false)
+
+  candidateAssessment BisneysCandidateAssessment @relation(fields: [candidateAssessmentId], references: [id])
+
+  @@index([candidateAssessmentId])
+  @@map("bisneys_assessment_answers")
 }

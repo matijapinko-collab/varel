@@ -2,7 +2,13 @@ import type {
   BisneysCandidateProfileStatus, BisneysEducationLevel, BisneysAvailabilityStatus,
   BisneysRelocationPreference, BisneysExperienceLevel, BisneysLanguageLevel, BisneysCandidateSource,
   BisneysApplicationStatus, BisneysInterviewStatus, BisneysInterviewType, BisneysContactChannel, BisneysContactOutcome,
+  BisneysAssessmentKind, BisneysAssessmentRecommendation,
 } from "@/generated/prisma/client";
+
+export const ASSESSMENT_KIND_LABELS: Record<BisneysAssessmentKind, string> = { QUESTIONNAIRE: "Upitnik", INTERVIEW: "Intervju" };
+export const ASSESSMENT_RECOMMENDATION_LABELS: Record<BisneysAssessmentRecommendation, string> = {
+  STRONG_YES: "Snažna preporuka", YES: "Preporuka", MAYBE: "Uvjetna preporuka", NO: "Ne preporučuje se", STRONG_NO: "Izrazito se ne preporučuje",
+};
 
 export const APPLICATION_STATUS_LABELS: Record<BisneysApplicationStatus, string> = {
   APPLIED: "Prijavljen", NEW: "Novo", UNDER_REVIEW: "U pregledu", CONTACT_ATTEMPTED: "Pokušan kontakt",

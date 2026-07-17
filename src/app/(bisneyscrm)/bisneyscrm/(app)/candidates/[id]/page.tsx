@@ -8,6 +8,8 @@ import { BackLink, DetailCard, DetailRow, StatusPill, LinkButton, SelectInput } 
 import { CANDIDATE_STATUS_LABELS, money, shortDate, dateTime } from "@/lib/bisneyscrm/format";
 import { PROFILE_STATUS_LABELS, EDUCATION_LEVEL_LABELS, AVAILABILITY_LABELS, RELOCATION_LABELS, CANDIDATE_SOURCE_LABELS } from "@/lib/bisneyscrm/candidates/labels";
 import { computeCandidateFlags } from "@/lib/bisneyscrm/candidates/derived";
+import { candidateAssessmentSummary } from "@/lib/bisneyscrm/candidates/assessment-score";
+import { ASSESSMENT_KIND_LABELS, ASSESSMENT_RECOMMENDATION_LABELS } from "@/lib/bisneyscrm/candidates/labels";
 import { RecruitmentSection, CandidateFlagBadges } from "@/components/bisneyscrm/candidates/recruitment-section";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +47,10 @@ export default async function CandidateProfile({ params }: { params: Promise<{ i
     db.bisneysContactAttempt.findMany({ where: { candidateId: c.id }, orderBy: { createdAt: "desc" }, take: 15 }),
     db.bisneysInterview.findMany({ where: { candidateId: c.id, deletedAt: null }, orderBy: { scheduledAt: "desc" } }),
     computeCandidateFlags(c.id),
+  ]);
+  const [assessSummary, assessments] = await Promise.all([
+    candidateAssessmentSummary(c.id),
+    db.bisneysCandidateAssessment.findMany({ where: { candidateId: c.id }, orderBy: { createdAt: "desc" }, take: 8, include: { } }),
   ]);
 
   return (
@@ -138,6 +144,33 @@ export default async function CandidateProfile({ params }: { params: Promise<{ i
       </div>
 
       <RecruitmentSection candidateId={c.id} applications={applications} contacts={contacts} interviews={interviews} jobs={jobs} />
+
+      <div className="mt-4">
+        <DetailCard title="Procjene" action={<LinkButton href={`/bisneyscrm/candidates/${c.id}/assess`} variant="ghost">Nova procjena</LinkButton>}>
+          <div className="mb-3 grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-border p-3">
+              <div className="text-xs text-muted">Upitnik</div>
+              <div className="mt-1 text-xl font-bold tabular-nums">{assessSummary.questionnaire?.normalized != null ? `${assessSummary.questionnaire.normalized}/10` : "—"}</div>
+              {assessSummary.questionnaire?.recommendation && <div className="text-xs text-muted">{ASSESSMENT_RECOMMENDATION_LABELS[assessSummary.questionnaire.recommendation]}</div>}
+            </div>
+            <div className="rounded-xl border border-border p-3">
+              <div className="text-xs text-muted">Intervju</div>
+              <div className="mt-1 text-xl font-bold tabular-nums">{assessSummary.interview?.normalized != null ? `${assessSummary.interview.normalized}/10` : "—"}</div>
+              {assessSummary.interview?.recommendation && <div className="text-xs text-muted">{ASSESSMENT_RECOMMENDATION_LABELS[assessSummary.interview.recommendation]}</div>}
+            </div>
+          </div>
+          {assessments.length === 0 ? <p className="text-sm text-muted">Još nema procjena.</p> : (
+            <ul className="space-y-1.5 text-sm">
+              {assessments.map((a) => (
+                <li key={a.id} className="flex items-center justify-between">
+                  <span>{ASSESSMENT_KIND_LABELS[a.kind]} · {a.normalizedScore ? `${Number(a.normalizedScore)}/10` : "—"}{a.eliminated ? " · eliminiran" : ""}</span>
+                  <span className="text-xs text-muted">{a.recommendation ? ASSESSMENT_RECOMMENDATION_LABELS[a.recommendation] : ""} · {shortDate(a.createdAt)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DetailCard>
+      </div>
 
       <div className="mt-4">
         <DetailCard title="Aktivnosti">

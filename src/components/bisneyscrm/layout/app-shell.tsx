@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, TrendingUp, Truck, Activity, Building2, Contact, Users,
   Briefcase, Network, Layers, Euro, Bell, BarChart3, Settings, UserCog,
-  LayoutGrid, ScrollText, SlidersHorizontal, Menu, X, LogOut, ChevronDown,
+  LayoutGrid, ScrollText, SlidersHorizontal, ClipboardCheck, Menu, X, LogOut, ChevronDown,
 } from "lucide-react";
 import { BISNEYS_NAV, type BisneysNavItem } from "./nav";
 import { bisneysLogout } from "@/server/actions/bisneys-auth";
@@ -17,7 +17,7 @@ const ICONS: Record<string, typeof Users> = {
   building: Building2, contact: Contact, users: Users, briefcase: Briefcase,
   network: Network, layers: Layers, euro: Euro, bell: Bell, chart: BarChart3,
   settings: Settings, userCog: UserCog, trello: LayoutGrid, scroll: ScrollText,
-  sliders: SlidersHorizontal,
+  sliders: SlidersHorizontal, clipboard: ClipboardCheck,
 };
 
 const ROLE_LABELS: Record<BisneysRole, string> = {
