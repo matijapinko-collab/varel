@@ -11,6 +11,7 @@ import { listInteractions } from "@/lib/bisneyscrm/interactions/service";
 import { InteractionsTimeline, type InteractionRow } from "@/components/bisneyscrm/companies/interactions-timeline";
 import { companyCandidateSummary } from "@/lib/bisneyscrm/companies/candidate-links";
 import { CompanyCandidates } from "@/components/bisneyscrm/companies/company-candidates";
+import { companyAccessSummary } from "@/lib/bisneyscrm/companies/access";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,8 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
     db.bisneysCandidate.findMany({ where: { deletedAt: null }, orderBy: { createdAt: "desc" }, take: 300, include: { person: { select: { fullName: true } } } }),
   ]);
   const candOpts = candidateOptions.map((c) => ({ id: c.id, name: c.person.fullName }));
+
+  const access = await companyAccessSummary(c.id);
 
   const interactionRows = await listInteractions({ companyId: c.id }, 200);
   const interactions: InteractionRow[] = interactionRows.map((i) => ({
@@ -107,6 +110,32 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
                 </li>
               ))}
             </ul>
+          )}
+        </DetailCard>
+      </div>
+
+      <div className="mt-4">
+        <DetailCard title="Pristup tvrtki" action={<Link href={`/bisneyscrm/relationships/company-entry?companyId=${c.id}`} className="text-sm font-semibold text-indigo-500 hover:underline">Pronađi ulaz →</Link>}>
+          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-xl border border-border px-3 py-2 text-center"><div className={`text-lg font-bold tabular-nums ${access.directContacts === 0 ? "text-red-500" : ""}`}>{access.directContacts}</div><div className="text-[11px] text-muted">Direktni kontakti</div></div>
+            <div className="rounded-xl border border-border px-3 py-2 text-center"><div className="text-lg font-bold tabular-nums">{access.currentEmployees}</div><div className="text-[11px] text-muted">Trenutačni zaposlenici</div></div>
+            <div className="rounded-xl border border-border px-3 py-2 text-center"><div className="text-lg font-bold tabular-nums">{access.formerEmployees}</div><div className="text-[11px] text-muted">Bivši zaposlenici</div></div>
+            <div className="rounded-xl border border-border px-3 py-2 text-center"><div className="text-lg font-bold tabular-nums">{access.totalInsiders}</div><div className="text-[11px] text-muted">Insideri u bazi</div></div>
+          </div>
+          {access.candidateEntries.length > 0 ? (
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-muted">Kandidati kao mogući ulaz</p>
+              <ul className="divide-y divide-border text-sm">
+                {access.candidateEntries.map((e) => (
+                  <li key={e.candidateId} className="flex items-center justify-between py-1.5">
+                    <Link href={`/bisneyscrm/candidates/${e.candidateId}`} className="font-medium hover:text-indigo-500">{e.name}</Link>
+                    <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">{e.relationLabel}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-sm text-muted">{access.directContacts === 0 ? "Nema direktnog kontakta ni insidera u bazi. Traži indirektni put preko mreže odnosa." : "Nema kandidata kao izravnog ulaza."}</p>
           )}
         </DetailCard>
       </div>
