@@ -1,5 +1,3 @@
-import { normalizeEmail, normalizePhone } from "@/lib/bisneyscrm/forms";
-
 /**
  * Trello candidate parser (Faza 7). Extracts structured candidate fields from
  * a Trello card's title, description and labels. Recruiters commonly encode
@@ -14,9 +12,7 @@ export type CandidateLabelMap = Record<string, LabelMapEntry>;
 export type ParsedCandidate = {
   fullName: string;
   email: string | null;
-  normalizedEmail: string | null;
   phone: string | null;
-  normalizedPhone: string | null;
   professionHint: string | null;
   professionId: string | null;
   status: string | null;
@@ -64,9 +60,7 @@ export function parseCandidateFromCard(
   return {
     fullName,
     email,
-    normalizedEmail: normalizeEmail(email),
     phone: phoneRaw,
-    normalizedPhone: normalizePhone(phoneRaw),
     professionHint,
     professionId,
     status,
