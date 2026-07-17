@@ -2877,6 +2877,7 @@ model BisneysCompany {
   companyServices BisneysCompanyService[]
   employments     BisneysEmployment[]
   candidateLinks  BisneysCandidateCompanyLink[]
+  companyWall     BisneysCompanyWallProfile?
 
   @@index([status])
   @@index([ownerId])
@@ -5483,4 +5484,45 @@ model BisneysCandidateCompanyLink {
   @@index([candidateId])
   @@index([relation])
   @@map("bisneys_candidate_company_links")
+}
+
+// --- Company Intelligence Faza 3: CompanyWall enrichment (kept separate so it
+//     never overwrites manually-confirmed company fields) ---
+
+model BisneysCompanyWallProfile {
+  id              String    @id @default(cuid())
+  companyId       String    @unique
+  externalId      String?
+  country         String?
+  legalName       String?
+  oib             String?
+  mbs             String?
+  status          String?
+  foundedAt       DateTime?
+  legalForm       String?
+  vatStatus       String?
+  address         String?
+  city            String?
+  postalCode      String?
+  nkd             String?
+  activity        String?
+  employeeCount   Int?
+  revenue         Decimal?  @db.Decimal(16, 2)
+  profit          Decimal?  @db.Decimal(16, 2)
+  creditRating    String?
+  directors       Json?
+  owners          Json?
+  raw             Json?
+  source          String    @default("COMPANYWALL") // COMPANYWALL | MANUAL
+  matchConfidence Decimal?  @db.Decimal(4, 3)
+  matchMethod     String?
+  fetchedAt       DateTime?
+  matchedById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  company BisneysCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([oib])
+  @@map("bisneys_companywall_profiles")
 }

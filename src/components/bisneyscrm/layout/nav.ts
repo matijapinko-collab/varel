@@ -30,6 +30,7 @@ export const BISNEYS_NAV: BisneysNavItem[] = [
   { href: `${BISNEYS_BASE}/settings`, label: "Postavke", icon: "settings" },
   { href: `${BISNEYS_BASE}/users`, label: "Korisnici", icon: "userCog", superadminOnly: true },
   { href: `${BISNEYS_BASE}/settings/trello`, label: "Trello integracija", icon: "trello", superadminOnly: true },
+  { href: `${BISNEYS_BASE}/settings/integrations/companywall`, label: "CompanyWall", icon: "building", superadminOnly: true },
   { href: `${BISNEYS_BASE}/audit-log`, label: "Audit log", icon: "scroll", superadminOnly: true },
   { href: `${BISNEYS_BASE}/settings/system`, label: "Sistemske postavke", icon: "sliders", superadminOnly: true },
 ];

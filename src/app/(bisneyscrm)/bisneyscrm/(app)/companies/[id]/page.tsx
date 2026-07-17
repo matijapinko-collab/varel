@@ -12,18 +12,22 @@ import { InteractionsTimeline, type InteractionRow } from "@/components/bisneysc
 import { companyCandidateSummary } from "@/lib/bisneyscrm/companies/candidate-links";
 import { CompanyCandidates } from "@/components/bisneyscrm/companies/company-candidates";
 import { companyAccessSummary } from "@/lib/bisneyscrm/companies/access";
+import { CompanyWallCard, type CompanyWallProfileView } from "@/components/bisneyscrm/companies/companywall-card";
 
 export const dynamic = "force-dynamic";
 
-export default async function CompanyProfile({ params }: { params: Promise<{ id: string }> }) {
+export default async function CompanyProfile({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireBisneysUser();
   const { id } = await params;
+  const sp = await searchParams;
+  const cwMsg = typeof sp.cw === "string" && sp.cw !== "ok" ? decodeURIComponent(sp.cw) : undefined;
 
   const c = await db.bisneysCompany.findFirst({
     where: { id, deletedAt: null },
     include: {
       contacts: { include: { person: true } },
       deals: { orderBy: { createdAt: "desc" } },
+      companyWall: true,
       _count: { select: { jobs: true } },
     },
   });
@@ -39,6 +43,15 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
   const candOpts = candidateOptions.map((c) => ({ id: c.id, name: c.person.fullName }));
 
   const access = await companyAccessSummary(c.id);
+  const cwProfile: CompanyWallProfileView | null = c.companyWall ? {
+    legalName: c.companyWall.legalName, oib: c.companyWall.oib, mbs: c.companyWall.mbs, status: c.companyWall.status,
+    legalForm: c.companyWall.legalForm, vatStatus: c.companyWall.vatStatus,
+    foundedAt: c.companyWall.foundedAt?.toISOString() ?? null,
+    address: c.companyWall.address, city: c.companyWall.city, postalCode: c.companyWall.postalCode,
+    nkd: c.companyWall.nkd, activity: c.companyWall.activity, employeeCount: c.companyWall.employeeCount,
+    revenue: c.companyWall.revenue ? String(c.companyWall.revenue) : null, creditRating: c.companyWall.creditRating,
+    source: c.companyWall.source, fetchedAt: c.companyWall.fetchedAt?.toISOString() ?? null,
+  } : null;
 
   const interactionRows = await listInteractions({ companyId: c.id }, 200);
   const interactions: InteractionRow[] = interactionRows.map((i) => ({
@@ -112,6 +125,10 @@ export default async function CompanyProfile({ params }: { params: Promise<{ id:
             </ul>
           )}
         </DetailCard>
+      </div>
+
+      <div className="mt-4">
+        <CompanyWallCard companyId={c.id} profile={cwProfile} message={cwMsg} />
       </div>
 
       <div className="mt-4">
