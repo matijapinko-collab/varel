@@ -26,6 +26,7 @@ export const BISNEYS_NAV: BisneysNavItem[] = [
   { href: `${BISNEYS_BASE}/finance`, label: "Financije", icon: "euro" },
   { href: `${BISNEYS_BASE}/notifications`, label: "Obavijesti", icon: "bell", badge: "notifications" },
   { href: `${BISNEYS_BASE}/reports`, label: "Izvještaji", icon: "chart" },
+  { href: `${BISNEYS_BASE}/data-quality`, label: "Kvaliteta podataka", icon: "shield" },
   { href: `${BISNEYS_BASE}/settings`, label: "Postavke", icon: "settings" },
   { href: `${BISNEYS_BASE}/users`, label: "Korisnici", icon: "userCog", superadminOnly: true },
   { href: `${BISNEYS_BASE}/settings/trello`, label: "Trello integracija", icon: "trello", superadminOnly: true },
