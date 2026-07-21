@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ToolCard, type ToolCardData } from "@/components/cards/tool-card";
 import { SearchBar } from "@/components/blocks/search-bar";
 import { TrackSearch } from "@/components/analytics/track-search";
+import { postCategorySelect, postPathFor } from "@/lib/post-url";
 
 export async function generateMetadata(
   props: PageProps<"/[locale]/search">
@@ -40,6 +41,7 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
               ],
             },
             take: 6,
+            include: { article: { select: postCategorySelect } },
           }),
           db.comparisonTranslation.findMany({
             where: {
@@ -115,7 +117,7 @@ export default async function SearchPage(props: PageProps<"/[locale]/search">) {
             {articles.map((a) => (
               <Link
                 key={a.id}
-                href={`/${locale}/guides/${a.slug}`}
+                href={postPathFor(locale, a.slug, a.article, a.languageId)}
                 className="rounded-card border border-border bg-card px-5 py-4 font-medium hover:border-primary/40 hover:text-primary"
               >
                 {a.title}

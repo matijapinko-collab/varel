@@ -7,6 +7,7 @@ import { getLanguage } from "@/lib/content";
 import type { Locale } from "@/lib/i18n/config";
 import { getAuthorBySlug, localizeAuthor, authorLabels, authorPersonJsonLd, siteUrl } from "@/lib/authors";
 import { JsonLd } from "@/lib/seo";
+import { postCategorySelect, postPathFor } from "@/lib/post-url";
 import { AuthorAvatar } from "./author-avatar";
 import { SocialIcon } from "./social-icon";
 
@@ -47,7 +48,13 @@ async function articlesByAuthor(authorId: string, locale: Locale, languageId: st
     },
     orderBy: { article: { publishedAt: "desc" } },
     take: 24,
-    select: { title: true, slug: true, excerpt: true, article: { select: { publishedAt: true } } },
+    select: {
+      title: true,
+      slug: true,
+      excerpt: true,
+      languageId: true,
+      article: { select: { publishedAt: true, ...postCategorySelect } },
+    },
   });
 }
 
@@ -109,7 +116,7 @@ export async function AuthorProfilePage({ locale, slug }: { locale: Locale; slug
           <ul className="mt-4 divide-y divide-border rounded-card border border-border">
             {posts.map((p) => (
               <li key={p.slug} className="p-4">
-                <Link href={`/${locale}/guides/${p.slug}`} className="font-semibold hover:text-primary">{p.title}</Link>
+                <Link href={postPathFor(locale, p.slug, p.article, p.languageId)} className="font-semibold hover:text-primary">{p.title}</Link>
                 {p.excerpt && <p className="mt-1 line-clamp-2 text-sm text-muted">{p.excerpt}</p>}
                 {p.article.publishedAt && (
                   <p className="mt-1 text-xs text-muted">{new Date(p.article.publishedAt).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" })}</p>

@@ -12,6 +12,7 @@ import { NewsletterForm } from "./newsletter-form";
 import { FaqAccordion } from "./faq-accordion";
 import { HeroMotion } from "@/components/motion/hero-motion";
 import { AnimatedSection } from "@/components/motion/animated-section";
+import { postCategorySelect, postPathFor } from "@/lib/post-url";
 
 /**
  * Renders page-builder blocks stored in the database (page_blocks table).
@@ -271,7 +272,7 @@ async function Block({ block, locale }: { block: BlockData; locale: Locale }) {
           status: "PUBLISHED",
           article: { status: "PUBLISHED", deletedAt: null },
         },
-        include: { article: true },
+        include: { article: { include: postCategorySelect } },
         orderBy: { updatedAt: "desc" },
         take: num(s, "limit", 3),
       });
@@ -286,7 +287,7 @@ async function Block({ block, locale }: { block: BlockData; locale: Locale }) {
             {articles.map((a) => (
               <Link
                 key={a.id}
-                href={`/${locale}/guides/${a.slug}`}
+                href={postPathFor(locale, a.slug, a.article, a.languageId)}
                 className="group rounded-card border border-border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-md"
               >
                 <div className="text-xs font-medium uppercase tracking-wide text-primary">

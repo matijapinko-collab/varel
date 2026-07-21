@@ -27,6 +27,8 @@ export type PostRow = {
   aiScore: number | null;
   category: string | null;
   previewLocale: string;
+  /** Canonical public URL, resolved server-side from the post's category. */
+  publicUrl: string;
 };
 
 type Lang = { id: string; code: string; nativeName: string };
@@ -147,7 +149,7 @@ export function PostsTable({ rows, languages }: { rows: PostRow[]; languages: La
 }
 
 function RowActions({ row, onQuickEdit }: { row: PostRow; onQuickEdit: () => void }) {
-  const publicUrl = `/${row.previewLocale}/guides/${row.slug}`;
+  const publicUrl = row.publicUrl;
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted opacity-0 transition-opacity group-hover:opacity-100">
       {row.trashed ? (

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { createPost } from "@/server/actions/posts";
 import { PostsTable, type PostRow } from "@/components/admin/posts-table";
 import type { Prisma } from "@/generated/prisma/client";
+import { postPathFor } from "@/lib/post-url";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,7 @@ export default async function PostsPage(props: PageProps<"/administracija/posts"
       include: {
         author: { select: { name: true } },
         translations: { include: { language: { select: { code: true } } } },
-        primaryCategory: { include: { translations: { select: { name: true, languageId: true } } } },
+        primaryCategory: { include: { translations: { select: { name: true, slug: true, languageId: true } } } },
       },
     }),
     Promise.all([
@@ -98,6 +99,7 @@ export default async function PostsPage(props: PageProps<"/administracija/posts"
       aiScore: tr?.llmCompletionScore ?? null,
       category: catName,
       previewLocale: tr?.language.code ?? "hr",
+      publicUrl: postPathFor(tr?.language.code ?? "hr", tr?.slug ?? "", a, tr?.languageId),
     };
   });
 

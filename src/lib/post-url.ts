@@ -16,6 +16,31 @@ export function postPath(locale: string, postSlug: string, categorySlug?: string
 }
 
 /**
+ * Prisma select/include fragment holding exactly what a post link needs.
+ * Drop it into any `article` select so internal links point straight at the
+ * canonical URL instead of bouncing through a 301.
+ */
+export const postCategorySelect = {
+  primaryCategory: {
+    select: { slug: true, translations: { select: { slug: true, languageId: true } } },
+  },
+} as const;
+
+type ArticleWithCategory = {
+  primaryCategory?: { slug: string; translations: { slug: string; languageId: string }[] } | null;
+};
+
+/** postPath() for an article fetched with postCategorySelect. */
+export function postPathFor(
+  locale: string,
+  postSlug: string,
+  article: ArticleWithCategory | null | undefined,
+  languageId?: string | null
+): string {
+  return postPath(locale, postSlug, categorySlugForLocale(article?.primaryCategory, languageId));
+}
+
+/**
  * Picks the category slug for a locale from a category's translations,
  * falling back to the canonical slug.
  */
