@@ -145,6 +145,16 @@ const REVISION_FIELDS = [
  * No-op when the translation does not exist yet (first save has nothing to keep).
  */
 async function recordRevision(articleId: string, languageId: string, kind: string, userId: string) {
+  try {
+    await writeRevision(articleId, languageId, kind, userId);
+  } catch (e) {
+    // Revision history is auxiliary: never let it block saving or publishing
+    // (e.g. right after a deploy, before the table migration has been run).
+    console.error("[revision] skipped:", (e as Error).message);
+  }
+}
+
+async function writeRevision(articleId: string, languageId: string, kind: string, userId: string) {
   const current = await db.articleTranslation.findUnique({
     where: { articleId_languageId: { articleId, languageId } },
   });

@@ -72,11 +72,14 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
       take: 60,
       select: { id: true, url: true, filename: true },
     }),
-    db.articleRevision.findMany({
-      where: { articleId: id, languageId: language.id },
-      orderBy: { createdAt: "desc" },
-      select: { id: true, title: true, status: true, kind: true, createdByName: true, createdAt: true },
-    }),
+    // Tolerate a missing table (deploy lands before the migration is run).
+    db.articleRevision
+      .findMany({
+        where: { articleId: id, languageId: language.id },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, title: true, status: true, kind: true, createdByName: true, createdAt: true },
+      })
+      .catch(() => []),
   ]);
 
   const robots = seo?.robots ?? "index,follow";
