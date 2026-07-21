@@ -9,11 +9,12 @@ import { PostArticle } from "@/components/content/post-article";
 import { postPath } from "@/lib/post-url";
 
 /**
- * Legacy post URL. Posts now live under their category, so this 301-redirects
- * whenever one is set. Posts without a category still render here, which keeps
- * this the canonical address for them.
+ * A post under its primary category: /{locale}/{category}/{postSlug}.
+ * The [slug] segment name is reused because Next.js forbids two differently
+ * named dynamic segments at the same level (/[locale]/[slug] already exists).
  */
 
+/** The category slug this post actually belongs to, in this locale. */
 function categoryOf(guide: Awaited<ReturnType<typeof getGuide>>): string | null {
   const c = guide?.article.primaryCategory;
   if (!c) return null;
@@ -21,13 +22,13 @@ function categoryOf(guide: Awaited<ReturnType<typeof getGuide>>): string | null 
 }
 
 export async function generateMetadata(
-  props: PageProps<"/[locale]/guides/[slug]">
+  props: PageProps<"/[locale]/[slug]/[postSlug]">
 ): Promise<Metadata> {
-  const { locale, slug } = await props.params;
+  const { locale, postSlug } = await props.params;
   if (!isLocale(locale)) return {};
   const sp = await props.searchParams;
   const previewId = await verifyPreviewToken(typeof sp?.preview === "string" ? sp.preview : null);
-  const guide = await getGuide(locale, slug, previewId);
+  const guide = await getGuide(locale, postSlug, previewId);
   if (!guide) return {};
   if (previewId) return { title: `[SKICA] ${guide.title}`, robots: { index: false, follow: false } };
 
@@ -37,29 +38,26 @@ export async function generateMetadata(
     fallbackTitle: guide.title,
     fallbackDescription: guide.excerpt ?? undefined,
     locale,
-    path: `/guides/${guide.slug}`,
+    path: postPath(locale, guide.slug, categoryOf(guide)).replace(`/${locale}`, ""),
   });
 }
 
-export default async function GuidePage(props: PageProps<"/[locale]/guides/[slug]">) {
-  const { locale, slug } = await props.params;
+export default async function CategoryPostPage(props: PageProps<"/[locale]/[slug]/[postSlug]">) {
+  const { locale, slug, postSlug } = await props.params;
   if (!isLocale(locale)) notFound();
 
   const sp = await props.searchParams;
   const previewId = await verifyPreviewToken(typeof sp?.preview === "string" ? sp.preview : null);
-  const guide = await getGuide(locale, slug, previewId);
+  const guide = await getGuide(locale, postSlug, previewId);
   if (!guide) notFound();
 
+  // Only the post's real category may serve it — anything else redirects to the
+  // canonical URL so one post never lives at several addresses.
   const category = categoryOf(guide);
-  // Keep preview links working on whichever URL the editor opened.
-  if (category && !previewId) permanentRedirect(postPath(locale, guide.slug, category));
+  const canonical = postPath(locale, guide.slug, category);
+  if (category !== slug) permanentRedirect(canonical);
 
   return (
-    <PostArticle
-      guide={guide}
-      locale={locale}
-      isPreview={Boolean(previewId)}
-      canonicalPath={postPath(locale, guide.slug, category)}
-    />
+    <PostArticle guide={guide} locale={locale} isPreview={Boolean(previewId)} canonicalPath={canonical} />
   );
 }

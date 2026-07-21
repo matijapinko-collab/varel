@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { PageHeader, AdminTable, StatusBadge } from "@/components/admin/ui";
+import { generateLocalizedCategorySlugs } from "@/server/actions/categories";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { deleteCategory } from "@/server/actions/categories";
 
@@ -20,6 +21,15 @@ export default async function AdminCategoriesPage() {
         title="Categories"
         action={{ href: "/administracija/categories/new", label: "+ New category" }}
       />
+      <form action={generateLocalizedCategorySlugs} className="-mt-2 mb-4">
+        <button className="rounded-lg border border-border px-3 py-1.5 text-sm hover:border-primary">
+          Generate localized slugs
+        </button>
+        <span className="ml-2 text-xs text-muted">
+          Fills each language&apos;s slug from its translated name (e.g. &ldquo;AI alati&rdquo; → <code>ai-alati</code>),
+          so Croatian post URLs read /hr/ai-alati/… Hand-edited slugs are left alone.
+        </span>
+      </form>
       <AdminTable
         headers={["Category", "Status", "Languages", "Tools", "Featured", ""]}
         empty={categories.length === 0}

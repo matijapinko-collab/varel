@@ -41,7 +41,7 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
     db.category.findMany({
       where: { deletedAt: null, status: "PUBLISHED" },
       orderBy: { position: "asc" },
-      include: { translations: { select: { name: true, languageId: true } } },
+      include: { translations: { select: { name: true, slug: true, languageId: true } } },
     }),
     db.tool.findMany({
       where: { deletedAt: null },
@@ -84,6 +84,10 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
 
   const robots = seo?.robots ?? "index,follow";
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+
+  // Localized slug drives the post's public URL (/hr/ai-alati/…).
+  const categorySlug = (c: (typeof categories)[number]) =>
+    c.translations.find((t) => t.languageId === language.id)?.slug ?? c.slug;
 
   const categoryName = (c: (typeof categories)[number]) =>
     c.translations.find((t) => t.languageId === language.id)?.name ??
@@ -165,7 +169,7 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
   };
 
   const options: EditorOptions = {
-    categories: categories.map((c) => ({ id: c.id, name: categoryName(c) })),
+    categories: categories.map((c) => ({ id: c.id, name: categoryName(c), slug: categorySlug(c) })),
     tools: tools.map((t) => ({ id: t.id, name: t.name })),
     reviewers: reviewers.map((u) => ({ id: u.id, name: u.name })),
     authors: authors.map((x) => ({

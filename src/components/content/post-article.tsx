@@ -1,0 +1,220 @@
+import Link from "next/link";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/config";
+import { FaqAccordion } from "@/components/blocks/faq-accordion";
+import { ToolCard, type ToolCardData } from "@/components/cards/tool-card";
+import { ProsConsBox } from "@/components/blocks/pros-cons-box";
+import { ComparisonBox, type ComparisonTool } from "@/components/blocks/comparison-box";
+import { VerdictBox } from "@/components/blocks/verdict-box";
+import { JsonLd, faqJsonLd, articleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
+import { getContentSettings, resolveArticleAuthor, localizeAuthor } from "@/lib/authors";
+import { AuthorBox } from "@/components/content/author-box";
+import { CompactAuthorMeta } from "@/components/content/compact-author-meta";
+import { PREVIEW_TTL_MINUTES } from "@/lib/preview-token";
+import type { GuideRecord } from "@/lib/guide-query";
+
+function toStrings(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+
+function wordsToMinutes(html: string | null): number {
+  if (!html) return 1;
+  const words = html.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 220));
+}
+
+/**
+ * The rendered post. Shared by the category URL (/{locale}/{category}/{slug})
+ * and the legacy /guides URL, so there is exactly one layout to maintain.
+ * `canonicalPath` is the post's real public path — used in JSON-LD and
+ * breadcrumbs so structured data never points at the wrong URL.
+ */
+export async function PostArticle({
+  guide,
+  locale,
+  isPreview,
+  canonicalPath,
+}: {
+  guide: GuideRecord;
+  locale: Locale;
+  isPreview: boolean;
+  canonicalPath: string;
+}) {
+  const t = getDictionary(locale);
+  const faq = Array.isArray(guide.faqJson)
+    ? (guide.faqJson as { question: string; answer: string }[])
+    : [];
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const a = guide.article;
+
+  const pros = toStrings(guide.prosJson);
+  const cons = toStrings(guide.consJson);
+  const lastUpdated = a.lastReviewedAt ?? guide.updatedAt;
+
+  const [contentSettings, displayAuthor] = await Promise.all([
+    getContentSettings(),
+    resolveArticleAuthor(a.authorProfile),
+  ]);
+  const la = displayAuthor ? localizeAuthor(displayAuthor, locale) : null;
+
+  // Public category label
+  const category = a.primaryCategory;
+  const categoryTr = category?.translations[0];
+
+  // Lazy-load images embedded in the body.
+  const bodyHtml = guide.body
+    ? guide.body.replace(/<img (?![^>]*loading=)/gi, '<img loading="lazy" ')
+    : null;
+
+  const toolLink = (tool: { translations: { slug: string }[] } | null | undefined) =>
+    tool?.translations[0]?.slug ? `/${locale}/tools/${tool.translations[0].slug}` : null;
+
+  const cmpA: ComparisonTool | null = a.comparisonEnabled && a.comparisonToolA
+    ? { name: a.comparisonToolA.name, href: toolLink(a.comparisonToolA), logoUrl: a.comparisonToolA.logo?.url ?? null }
+    : null;
+  const cmpB: ComparisonTool | null = a.comparisonEnabled && a.comparisonToolB
+    ? { name: a.comparisonToolB.name, href: toolLink(a.comparisonToolB), logoUrl: a.comparisonToolB.logo?.url ?? null }
+    : null;
+
+  const breadcrumb = [
+    { name: "Home", url: `${site}/${locale}` },
+    ...(categoryTr ? [{ name: categoryTr.name, url: `${site}/${locale}/categories/${categoryTr.slug}` }] : []),
+    { name: guide.title, url: `${site}${canonicalPath}` },
+  ];
+
+  return (
+    <article className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+      {isPreview && (
+        <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-50 p-4 text-sm dark:bg-amber-500/10">
+          <p className="font-semibold text-amber-800 dark:text-amber-300">
+            Pregled skice — ovo još nije objavljeno
+          </p>
+          <p className="mt-1 text-amber-800/80 dark:text-amber-200/80">
+            Status članka: <strong>{a.status}</strong>
+            {guide.status !== a.status && <> · status ovog prijevoda: <strong>{guide.status}</strong></>}
+            . Za objavu oba moraju biti <strong>PUBLISHED</strong>.
+          </p>
+          <p className="mt-1 text-amber-800/80 dark:text-amber-200/80">
+            Stranica nije indeksirana i nije javno dostupna bez ove poveznice. Poveznica istječe za{" "}
+            {PREVIEW_TTL_MINUTES} minuta.
+          </p>
+        </div>
+      )}
+      <JsonLd
+        data={articleJsonLd({
+          title: guide.title,
+          description: guide.excerpt,
+          authorName: la?.displayName ?? a.author?.name,
+          authorUrl: la?.url,
+          authorImage: la?.photoUrl,
+          authorSameAs: la?.socials.map((s) => s.url),
+          image: a.featuredImage?.url,
+          datePublished: a.publishedAt,
+          dateModified: lastUpdated,
+          url: `${site}${canonicalPath}`,
+        })}
+      />
+      <JsonLd data={breadcrumbJsonLd(breadcrumb)} />
+      {faq.length > 0 && <JsonLd data={faqJsonLd(faq)} />}
+
+      <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+        {categoryTr ? (
+          <Link href={`/${locale}/categories/${categoryTr.slug}`} className="hover:underline">{categoryTr.name}</Link>
+        ) : (
+          <span>{a.type === "CORNERSTONE" ? "Cornerstone guide" : "Guide"}</span>
+        )}
+      </div>
+      <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{guide.title}</h1>
+      {displayAuthor && contentSettings.compactAuthorUnderTitle ? (
+        <CompactAuthorMeta
+          author={displayAuthor}
+          locale={locale}
+          updated={lastUpdated}
+          lastTested={a.lastTestedAt}
+          pricingChecked={a.pricingCheckedAt}
+          reviewerName={a.reviewer && a.reviewer.id !== a.author?.id ? a.reviewer.name : null}
+          extra={<span>· {wordsToMinutes(guide.body)} {t.reading_time}</span>}
+        />
+      ) : (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+          <span>Updated {lastUpdated.toLocaleDateString(locale)}</span>
+          <span>· {wordsToMinutes(guide.body)} {t.reading_time}</span>
+        </div>
+      )}
+
+      {/* Short answer summary box (near top for readers + AI engines) */}
+      {(guide.aiSummary || guide.directAnswer) && (
+        <div className="mt-6 rounded-card border border-border bg-soft/40 p-5">
+          {guide.aiSummary && <p className="text-base font-medium">{guide.aiSummary}</p>}
+          {guide.directAnswer && <p className="mt-2 text-sm text-muted">{guide.directAnswer}</p>}
+        </div>
+      )}
+
+      {a.featuredImage?.url && (
+        <div className="mt-6 overflow-hidden rounded-card border border-border">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={a.featuredImage.url} alt={guide.featuredImageAlt ?? guide.title} loading="lazy" className="w-full object-cover" />
+        </div>
+      )}
+
+      {guide.excerpt && <p className="mt-6 text-lg text-muted">{guide.excerpt}</p>}
+
+      {bodyHtml && <div className="prose-varel mt-8" dangerouslySetInnerHTML={{ __html: bodyHtml }} />}
+
+      {a.prosConsEnabled && (
+        <ProsConsBox heading={guide.prosConsHeading} intro={guide.prosConsIntro} pros={pros} cons={cons} />
+      )}
+
+      {cmpA && cmpB && (
+        <ComparisonBox
+          heading={guide.comparisonHeading}
+          summary={guide.comparisonSummary}
+          toolA={cmpA}
+          toolB={cmpB}
+          ctaLabel={guide.comparisonCtaLabel}
+          ctaUrl={guide.comparisonCtaUrl}
+        />
+      )}
+
+      {faq.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-xl font-bold">{t.faq}</h2>
+          <div className="mt-4">
+            <FaqAccordion items={faq} />
+          </div>
+        </section>
+      )}
+
+      {a.varelVerdictEnabled && (
+        <VerdictBox
+          headline={guide.varelVerdictHeadline}
+          summary={guide.varelVerdictSummary}
+          bestFor={guide.varelVerdictBestFor}
+          skipIf={guide.varelVerdictSkipIf}
+          rating={guide.varelVerdictRating}
+        />
+      )}
+
+      {displayAuthor && contentSettings.authorBoxOnArticles && (
+        <AuthorBox
+          author={displayAuthor}
+          locale={locale}
+          lastUpdated={lastUpdated}
+          lastTested={a.lastTestedAt}
+          pricingChecked={a.pricingCheckedAt}
+        />
+      )}
+
+      {a.tools.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-xl font-bold">{t.related_guides}</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {a.tools.map(({ tool }) => (
+              <ToolCard key={tool.id} tool={tool as unknown as ToolCardData} locale={locale} />
+            ))}
+          </div>
+        </section>
+      )}
+    </article>
+  );
+}

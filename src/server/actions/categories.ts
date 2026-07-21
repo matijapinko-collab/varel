@@ -8,6 +8,54 @@ import { requirePermission, slugify, fd, fdBool, fdNum } from "./helpers";
 import { saveSeoFromForm } from "./seo";
 import type { ContentStatus } from "@/generated/prisma/client";
 
+/**
+ * Fills per-language category slugs from the translated name, so Croatian post
+ * URLs read /hr/ai-alati/... instead of /hr/ai-tools/...
+ * Only touches translations still using the canonical slug — anything an editor
+ * customised by hand is left alone. Collisions get a -2, -3 … suffix.
+ */
+export async function generateLocalizedCategorySlugs(): Promise<void> {
+  const { userId } = await requirePermission("tools.manage");
+
+  const categories = await db.category.findMany({
+    where: { deletedAt: null },
+    select: { id: true, slug: true, translations: { select: { id: true, languageId: true, name: true, slug: true } } },
+  });
+
+  // Track used slugs per language so we never create a duplicate.
+  const used = new Map<string, Set<string>>();
+  for (const c of categories) {
+    for (const t of c.translations) {
+      if (!used.has(t.languageId)) used.set(t.languageId, new Set());
+      used.get(t.languageId)!.add(t.slug);
+    }
+  }
+
+  let changed = 0;
+  for (const c of categories) {
+    for (const t of c.translations) {
+      // Leave hand-picked slugs untouched.
+      if (t.slug !== c.slug) continue;
+      const base = slugify(t.name);
+      if (!base || base === t.slug) continue;
+
+      const taken = used.get(t.languageId)!;
+      let candidate = base;
+      let n = 2;
+      while (taken.has(candidate)) candidate = `${base}-${n++}`;
+
+      await db.categoryTranslation.update({ where: { id: t.id }, data: { slug: candidate } });
+      taken.delete(t.slug);
+      taken.add(candidate);
+      changed++;
+    }
+  }
+
+  await audit({ userId, action: "UPDATE", entityType: "CATEGORY", entityId: "bulk-slugs", details: { changed } });
+  revalidatePath("/administracija/categories");
+  revalidatePath("/", "layout");
+}
+
 export async function createCategory(form: FormData) {
   const { userId } = await requirePermission("tools.manage");
   const name = fd(form, "name");

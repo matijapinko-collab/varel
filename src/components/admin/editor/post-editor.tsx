@@ -6,6 +6,7 @@ import Image from "next/image";
 import { ChevronUp, ChevronDown, Plus, X } from "lucide-react";
 import { RichTextEditor } from "./rich-text-editor";
 import { RevisionsPanel, type RevisionItem } from "./revisions-panel";
+import { postPath } from "@/lib/post-url";
 import { savePost, autosavePost, trashPost, type PostSaveInput } from "@/server/actions/posts";
 import {
   contentChecks,
@@ -84,7 +85,7 @@ export type PostEditorData = {
 };
 
 export type EditorOptions = {
-  categories: { id: string; name: string }[];
+  categories: { id: string; name: string; slug: string }[];
   tools: { id: string; name: string }[];
   reviewers: { id: string; name: string }[];
   authors: { id: string; nameEn: string; nameHr: string; hasPhoto: boolean; hasBio: boolean }[];
@@ -210,7 +211,6 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
       }
       if (res.status) setStatus(res.status);
       setStatusTouched(false);
-      setStatusTouched(false);
       setDirty(false);
       setSaveState("saved");
       setSavedLabel(`Saved at ${new Date().toLocaleTimeString()}`);
@@ -260,7 +260,11 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
     return () => window.removeEventListener("beforeunload", h);
   }, [dirty]);
 
-  const publicPath = `/${data.languageCode}/guides/${f.slug}`;
+  // Posts live under their category, so the permalink follows the selection.
+  const selectedCategorySlug =
+    options.categories.find((c) => c.id === f.primaryCategoryId)?.slug ?? null;
+  const publicPath = postPath(data.languageCode, f.slug, selectedCategorySlug);
+  const permalinkPrefix = `/${data.languageCode}/${selectedCategorySlug ?? "guides"}/`;
   // Drafts 404 on the public route, so preview them through a tokenized link.
   const previewHref = isPublished
     ? publicPath
@@ -305,7 +309,7 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
           />
           <div className="flex items-center gap-2 text-sm text-muted">
             <span>Permalink:</span>
-            <span className="truncate">{options.siteUrl}/{data.languageCode}/guides/</span>
+            <span className="truncate">{options.siteUrl}{permalinkPrefix}</span>
             <input value={f.slug} onChange={(e) => up("slug", e.target.value)} className="h-7 flex-1 rounded border border-border bg-background px-2 text-xs" />
           </div>
 
