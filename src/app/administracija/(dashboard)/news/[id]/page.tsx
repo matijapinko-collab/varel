@@ -12,6 +12,7 @@ import {
   StatusBadge,
 } from "@/components/admin/ui";
 import { LangTabs } from "@/components/admin/lang-tabs";
+import { FeaturedImageField } from "@/components/admin/featured-image-field";
 import { SeoFields } from "@/components/admin/seo-fields";
 
 export default async function EditNewsPage(props: PageProps<"/administracija/news/[id]">) {
@@ -19,16 +20,23 @@ export default async function EditNewsPage(props: PageProps<"/administracija/new
   const searchParams = await props.searchParams;
   const langCode = typeof searchParams.lang === "string" ? searchParams.lang : "hr";
 
-  const [news, languages, tools] = await Promise.all([
+  const [news, languages, tools, media] = await Promise.all([
     db.newsItem.findUnique({
       where: { id },
       include: {
         translations: { include: { language: true } },
         relatedTools: true,
+        featuredImage: true,
       },
     }),
     db.language.findMany({ where: { isEnabled: true }, orderBy: { position: "asc" } }),
     db.tool.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    db.media.findMany({
+      where: { mimeType: { startsWith: "image/" } },
+      orderBy: { createdAt: "desc" },
+      take: 60,
+      select: { id: true, url: true, filename: true },
+    }),
   ]);
   if (!news) notFound();
 
@@ -65,6 +73,12 @@ export default async function EditNewsPage(props: PageProps<"/administracija/new
               </Select>
             </Field>
           </div>
+          <FeaturedImageField
+            media={media.map((m) => ({ id: m.id, url: m.url, name: m.filename }))}
+            initialId={news.featuredImageId}
+            initialUrl={news.featuredImage?.url ?? null}
+            hint="Shown on the news page and in social shares."
+          />
         </FormSection>
 
         <FormSection title={`Content — ${language.nativeName}`}>
@@ -117,8 +131,16 @@ export default async function EditNewsPage(props: PageProps<"/administracija/new
           </div>
         </FormSection>
 
-        <SeoFields entityType="NEWS" entityId={news.id} languageId={language.id} />
-        <SubmitButton label="Save news item" />
+        <SeoFields
+          entityType="NEWS"
+          entityId={news.id}
+          languageId={language.id}
+          title={tr?.title ?? ""}
+          slug={tr?.slug ?? ""}
+          body={tr?.body ?? tr?.summary ?? ""}
+          publicPath={`/${language.code}/news/${tr?.slug ?? ""}`}
+        />
+        <SubmitButton label="Update news item" />
       </form>
     </div>
   );

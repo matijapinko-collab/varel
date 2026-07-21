@@ -13,6 +13,7 @@ import {
 } from "@/components/admin/ui";
 import { LangTabs } from "@/components/admin/lang-tabs";
 import { SeoFields } from "@/components/admin/seo-fields";
+import { FeaturedImageField } from "@/components/admin/featured-image-field";
 
 const EDITORIAL_CATEGORIES = [
   "Market Analysis", "My Take", "Weekly Brief", "AI Industry Notes", "Startup Watch",
@@ -24,12 +25,18 @@ export default async function EditEditorialPage(props: PageProps<"/administracij
   const searchParams = await props.searchParams;
   const langCode = typeof searchParams.lang === "string" ? searchParams.lang : "hr";
 
-  const [post, languages] = await Promise.all([
+  const [post, languages, media] = await Promise.all([
     db.editorialPost.findUnique({
       where: { id },
-      include: { translations: { include: { language: true } }, author: true },
+      include: { translations: { include: { language: true } }, author: true, featuredImage: true },
     }),
     db.language.findMany({ where: { isEnabled: true }, orderBy: { position: "asc" } }),
+    db.media.findMany({
+      where: { mimeType: { startsWith: "image/" } },
+      orderBy: { createdAt: "desc" },
+      take: 60,
+      select: { id: true, url: true, filename: true },
+    }),
   ]);
   if (!post) notFound();
 
@@ -51,6 +58,12 @@ export default async function EditEditorialPage(props: PageProps<"/administracij
               ))}
             </Select>
           </Field>
+          <FeaturedImageField
+            media={media.map((m) => ({ id: m.id, url: m.url, name: m.filename }))}
+            initialId={post.featuredImageId}
+            initialUrl={post.featuredImage?.url ?? null}
+            hint="Shown on the article page and in social shares."
+          />
         </FormSection>
 
         <FormSection title={`Content — ${language.nativeName}`}>
@@ -100,8 +113,16 @@ export default async function EditEditorialPage(props: PageProps<"/administracij
           </div>
         </FormSection>
 
-        <SeoFields entityType="EDITORIAL" entityId={post.id} languageId={language.id} />
-        <SubmitButton label="Save column" />
+        <SeoFields
+          entityType="EDITORIAL"
+          entityId={post.id}
+          languageId={language.id}
+          title={tr?.title ?? ""}
+          slug={tr?.slug ?? ""}
+          body={tr?.body ?? ""}
+          publicPath={`/${language.code}/editorial/${tr?.slug ?? ""}`}
+        />
+        <SubmitButton label="Update article" />
       </form>
     </div>
   );

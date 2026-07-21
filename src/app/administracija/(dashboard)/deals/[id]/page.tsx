@@ -14,16 +14,17 @@ import {
 } from "@/components/admin/ui";
 import { LangTabs } from "@/components/admin/lang-tabs";
 import { SeoFields } from "@/components/admin/seo-fields";
+import { FeaturedImageField } from "@/components/admin/featured-image-field";
 
 export default async function EditDealPage(props: PageProps<"/administracija/deals/[id]">) {
   const { id } = await props.params;
   const searchParams = await props.searchParams;
   const langCode = typeof searchParams.lang === "string" ? searchParams.lang : "hr";
 
-  const [deal, languages, affiliateLinks, products, partners, offers] = await Promise.all([
+  const [deal, languages, affiliateLinks, products, partners, offers, media] = await Promise.all([
     db.deal.findUnique({
       where: { id },
-      include: { translations: { include: { language: true } } },
+      include: { translations: { include: { language: true } }, image: true },
     }),
     db.language.findMany({ where: { isEnabled: true }, orderBy: { position: "asc" } }),
     db.affiliateLink.findMany({ where: { deletedAt: null }, orderBy: { brandName: "asc" } }),
@@ -33,6 +34,12 @@ export default async function EditDealPage(props: PageProps<"/administracija/dea
       where: { isActive: true },
       include: { partner: true, tool: true },
       orderBy: { updatedAt: "desc" },
+    }),
+    db.media.findMany({
+      where: { mimeType: { startsWith: "image/" } },
+      orderBy: { createdAt: "desc" },
+      take: 60,
+      select: { id: true, url: true, filename: true },
     }),
   ]);
   if (!deal) notFound();
@@ -89,6 +96,14 @@ export default async function EditDealPage(props: PageProps<"/administracija/dea
               />
             </Field>
           </div>
+          <FeaturedImageField
+            name="imageId"
+            label="Deal image"
+            media={media.map((m) => ({ id: m.id, url: m.url, name: m.filename }))}
+            initialId={deal.imageId}
+            initialUrl={deal.image?.url ?? null}
+            hint="Shown on deal cards and the Best Deals page."
+          />
         </FormSection>
 
         <FormSection title="Best Deals — product, offer & partner">
@@ -162,7 +177,7 @@ export default async function EditDealPage(props: PageProps<"/administracija/dea
         </FormSection>
 
         <SeoFields entityType="DEAL" entityId={deal.id} languageId={language.id} />
-        <SubmitButton label="Save deal" />
+        <SubmitButton label="Update deal" />
       </form>
     </div>
   );

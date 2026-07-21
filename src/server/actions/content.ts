@@ -234,6 +234,7 @@ export async function saveNews(newsId: string, languageId: string, form: FormDat
       sourceName: fd(form, "sourceName") || null,
       sourceUrl: fd(form, "sourceUrl") || null,
       priority: (fd(form, "priority") || "MEDIUM") as NewsPriority,
+      featuredImageId: fd(form, "featuredImageId") || null,
       status,
       ...statusDates(status),
     },
