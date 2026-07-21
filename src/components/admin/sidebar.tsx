@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   PackageOpen,
   Settings,
+  Eraser,
   Palette,
   FileEdit,
   LogOut,
@@ -104,6 +105,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
     items: [
       { href: "/administracija/settings", label: "General", icon: Settings },
       { href: "/administracija/settings/content", label: "Content & Authors", icon: FileEdit },
+      { href: "/administracija/settings/demo-content", label: "Demo content", icon: Eraser },
       { href: "/administracija/branding", label: "Branding & Theme", icon: Palette },
       { href: "/administracija/languages", label: "Languages", icon: Languages },
       { href: "/administracija/translations", label: "Translations", icon: Repeat2 },
