@@ -12,6 +12,7 @@ import { ComparisonBox, type ComparisonTool } from "@/components/blocks/comparis
 import { VerdictBox } from "@/components/blocks/verdict-box";
 import { buildSeoMetadata, JsonLd, faqJsonLd, articleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { getContentSettings, resolveArticleAuthor, localizeAuthor } from "@/lib/authors";
+import { verifyPreviewToken, PREVIEW_TTL_MINUTES } from "@/lib/preview-token";
 import { AuthorBox } from "@/components/content/author-box";
 import { CompactAuthorMeta } from "@/components/content/compact-author-meta";
 
@@ -19,7 +20,7 @@ function toStrings(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 }
 
-async function getGuide(locale: Locale, slug: string) {
+async function getGuide(locale: Locale, slug: string, previewArticleId?: string | null) {
   const language = await getLanguage(locale);
   if (!language) return null;
   const toolInclude = {
@@ -29,8 +30,10 @@ async function getGuide(locale: Locale, slug: string) {
     where: {
       languageId: language.id,
       slug,
-      status: "PUBLISHED",
-      article: { status: "PUBLISHED", deletedAt: null },
+      // A valid preview token unlocks exactly one article, regardless of status.
+      ...(previewArticleId
+        ? { articleId: previewArticleId, article: { deletedAt: null } }
+        : { status: "PUBLISHED", article: { status: "PUBLISHED", deletedAt: null } }),
     },
     include: {
       article: {
@@ -73,8 +76,12 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { locale, slug } = await props.params;
   if (!isLocale(locale)) return {};
-  const guide = await getGuide(locale, slug);
+  const sp = await props.searchParams;
+  const previewId = await verifyPreviewToken(typeof sp?.preview === "string" ? sp.preview : null);
+  const guide = await getGuide(locale, slug, previewId);
   if (!guide) return {};
+  // Previews must never be indexed.
+  if (previewId) return { title: `[SKICA] ${guide.title}`, robots: { index: false, follow: false } };
   const seo = await getSeo("ARTICLE", guide.articleId, locale);
   return buildSeoMetadata({
     seo,
@@ -95,8 +102,11 @@ export default async function GuidePage(props: PageProps<"/[locale]/guides/[slug
   const { locale, slug } = await props.params;
   if (!isLocale(locale)) notFound();
   const t = getDictionary(locale);
-  const guide = await getGuide(locale, slug);
+  const sp = await props.searchParams;
+  const previewId = await verifyPreviewToken(typeof sp?.preview === "string" ? sp.preview : null);
+  const guide = await getGuide(locale, slug, previewId);
   if (!guide) notFound();
+  const isPreview = Boolean(previewId);
 
   const faq = Array.isArray(guide.faqJson)
     ? (guide.faqJson as { question: string; answer: string }[])
@@ -141,6 +151,22 @@ export default async function GuidePage(props: PageProps<"/[locale]/guides/[slug
 
   return (
     <article className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+      {isPreview && (
+        <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-50 p-4 text-sm dark:bg-amber-500/10">
+          <p className="font-semibold text-amber-800 dark:text-amber-300">
+            Pregled skice — ovo još nije objavljeno
+          </p>
+          <p className="mt-1 text-amber-800/80 dark:text-amber-200/80">
+            Status članka: <strong>{a.status}</strong>
+            {guide.status !== a.status && <> · status ovog prijevoda: <strong>{guide.status}</strong></>}
+            . Za objavu oba moraju biti <strong>PUBLISHED</strong>.
+          </p>
+          <p className="mt-1 text-amber-800/80 dark:text-amber-200/80">
+            Stranica nije indeksirana i nije javno dostupna bez ove poveznice. Poveznica istječe za{" "}
+            {PREVIEW_TTL_MINUTES} minuta.
+          </p>
+        </div>
+      )}
       <JsonLd
         data={articleJsonLd({
           title: guide.title,

@@ -251,6 +251,10 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
   }, [dirty]);
 
   const publicPath = `/${data.languageCode}/guides/${f.slug}`;
+  // Drafts 404 on the public route, so preview them through a tokenized link.
+  const previewHref = isPublished
+    ? publicPath
+    : `/api/admin/preview/${data.id}?lang=${data.languageCode}`;
 
   function insertOutline() {
     const html = OUTLINE.map((h) => `<h2>${h}</h2><p></p>`).join("");
@@ -435,7 +439,7 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
             )}
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Link href={publicPath} target="_blank" className="rounded-lg border border-border px-3 py-1.5 text-sm hover:border-primary">Preview</Link>
+              <a href={previewHref} target="_blank" rel="noopener" className="rounded-lg border border-border px-3 py-1.5 text-sm hover:border-primary">Preview</a>
               <button onClick={() => doSave("draft")} disabled={isPending} className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:border-primary disabled:opacity-50">Save Draft</button>
               {isPublished ? (
                 <button onClick={() => doSave("update")} disabled={isPending || !canPublish} title={canPublish ? "" : "Complete required fields"} className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50">Update</button>
