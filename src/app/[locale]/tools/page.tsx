@@ -60,7 +60,25 @@ export default async function ToolsPage(props: PageProps<"/[locale]/tools">) {
       </div>
 
       {tools.length === 0 ? (
-        <p className="mt-10 text-muted">{t.no_results}</p>
+        // Distinguish "your filter matched nothing" from "there is no content yet",
+        // so an empty directory doesn't read like a broken search.
+        categorySlug ? (
+          <div className="mt-10 rounded-card border border-border bg-card p-8 text-center">
+            <p className="font-medium">{t.no_results}</p>
+            <p className="mt-1 text-sm text-muted">{t.no_results_hint}</p>
+            <Link
+              href={`/${locale}/tools`}
+              className="mt-4 inline-block rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              {t.clear_filters}
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-10 rounded-card border border-dashed border-border bg-card p-10 text-center">
+            <h2 className="text-lg font-semibold">{t.directory_empty_title}</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted">{t.directory_empty_body}</p>
+          </div>
+        )
       ) : (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {tools.map((tool) => (

@@ -72,6 +72,11 @@ const en = {
     "Some links are affiliate links. We may earn a commission at no extra cost to you.",
   search_results_for: "Search results for",
   no_results: "No results found.",
+  no_results_hint: "Try a different search term or clear the filters.",
+  clear_filters: "Clear filters",
+  directory_empty_title: "We're building this directory",
+  directory_empty_body:
+    "Tools are being reviewed and added. Subscribe below and we'll tell you when the first ones go live.",
   search_button: "Search",
   published: "Published",
   updated: "Updated",
@@ -187,6 +192,11 @@ const hr: Dictionary = {
     "Neke poveznice su affiliate poveznice. Možemo zaraditi proviziju bez dodatnog troška za tebe.",
   search_results_for: "Rezultati pretrage za",
   no_results: "Nema rezultata.",
+  no_results_hint: "Pokušajte s drugim pojmom ili poništite filtre.",
+  clear_filters: "Poništi filtre",
+  directory_empty_title: "Ovaj direktorij tek gradimo",
+  directory_empty_body:
+    "Alati se testiraju i dodaju. Prijavite se na newsletter pa javljamo kad objavimo prve.",
   search_button: "Traži",
   published: "Objavljeno",
   updated: "Ažurirano",
