@@ -110,6 +110,8 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
   const [f, setF] = useState<PostEditorData>(data);
   const [featuredUrl, setFeaturedUrl] = useState(data.featuredImageUrl);
   const [status, setStatus] = useState(data.status);
+  // Only override the button's intent when the dropdown was actually changed.
+  const [statusTouched, setStatusTouched] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "unsaved">("idle");
   const [savedLabel, setSavedLabel] = useState("");
@@ -119,6 +121,9 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
   const [isPending, startTransition] = useTransition();
 
   const isPublished = status === "PUBLISHED";
+  // A past date publishes immediately — only a future one is a real schedule.
+  const schedulesForLater =
+    Boolean(f.scheduledAt) && new Date(f.scheduledAt as string).getTime() > Date.now();
   const up = useCallback(<K extends keyof PostEditorData>(key: K, value: PostEditorData[K]) => {
     setF((prev) => ({ ...prev, [key]: value }));
     setDirty(true);
@@ -171,6 +176,7 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
   function buildInput(action: PostSaveInput["action"]): PostSaveInput {
     return {
       action,
+      ...(statusTouched ? { status: status as PostSaveInput["status"] } : {}),
       title: f.title,
       slug: f.slug,
       excerpt: f.excerpt,
@@ -203,6 +209,8 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
         return;
       }
       if (res.status) setStatus(res.status);
+      setStatusTouched(false);
+      setStatusTouched(false);
       setDirty(false);
       setSaveState("saved");
       setSavedLabel(`Saved at ${new Date().toLocaleTimeString()}`);
@@ -416,7 +424,7 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
           <Box title="Publish">
             <div className="space-y-2 text-sm">
               <Row label="Status">
-                <select value={status} onChange={(e) => { setStatus(e.target.value); setDirty(true); }} className="h-8 rounded border border-border bg-background px-2 text-sm">
+                <select value={status} onChange={(e) => { setStatus(e.target.value); setStatusTouched(true); setDirty(true); }} className="h-8 rounded border border-border bg-background px-2 text-sm">
                   {["DRAFT", "REVIEW", "PUBLISHED", "SCHEDULED", "ARCHIVED"].map((s) => <option key={s} value={s}>{s.toLowerCase()}</option>)}
                 </select>
               </Row>
@@ -446,7 +454,7 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
               {isPublished ? (
                 <button onClick={() => doSave("update")} disabled={isPending || !canPublish} title={canPublish ? "" : "Complete required fields"} className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50">Update</button>
               ) : (
-                <button onClick={() => doSave("publish")} disabled={isPending || !canPublish} title={canPublish ? "" : "Complete required fields"} className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50">{f.scheduledAt ? "Schedule" : "Publish"}</button>
+                <button onClick={() => doSave("publish")} disabled={isPending || !canPublish} title={canPublish ? "" : "Complete required fields"} className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50">{schedulesForLater ? "Schedule" : "Publish"}</button>
               )}
             </div>
             <form action={trashPost.bind(null, data.id)} className="mt-2" onSubmit={(e) => { if (!confirm("Move this post to Trash?")) e.preventDefault(); }}>

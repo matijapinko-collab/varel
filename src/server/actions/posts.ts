@@ -24,6 +24,8 @@ const LIST = "/administracija/posts";
 
 export type PostSaveInput = {
   action: "draft" | "publish" | "update";
+  /** Explicit status from the Publish box dropdown. Overrides the action's default. */
+  status?: ContentStatus;
   title: string;
   slug: string;
   excerpt: string;
@@ -126,6 +128,34 @@ function snapshotOf(input: PostSaveInput): PostSnapshot {
 const clean = (arr: string[]) => arr.map((s) => s.trim()).filter(Boolean);
 
 /** Full save from the classic editor. Handles Save Draft / Publish / Update. */
+/**
+ * Flips SCHEDULED posts whose time has come to PUBLISHED. Nothing else does
+ * this, so without it a scheduled post stays invisible forever. Called by the
+ * daily cron; safe to run repeatedly.
+ */
+export async function publishDueScheduledPosts(): Promise<number> {
+  const now = new Date();
+  const due = await db.article.findMany({
+    where: { status: "SCHEDULED", deletedAt: null, scheduledAt: { not: null, lte: now } },
+    select: { id: true, publishedAt: true },
+  });
+  if (due.length === 0) return 0;
+  const ids = due.map((d) => d.id);
+
+  await db.article.updateMany({ where: { id: { in: ids } }, data: { status: "PUBLISHED" } });
+  // Stamp publishedAt only where it was never set.
+  await db.article.updateMany({
+    where: { id: { in: due.filter((d) => !d.publishedAt).map((d) => d.id) } },
+    data: { publishedAt: now },
+  });
+  // The public queries require the translation to be published too.
+  await db.articleTranslation.updateMany({
+    where: { articleId: { in: ids }, status: "SCHEDULED" },
+    data: { status: "PUBLISHED" },
+  });
+  return ids.length;
+}
+
 /** How many revisions to keep per article translation. */
 const REVISION_LIMIT = 30;
 
@@ -262,6 +292,23 @@ export async function savePost(
   } else {
     status = "DRAFT";
     message = "Draft saved.";
+  }
+
+  // The Publish box dropdown wins when the editor sent one — otherwise picking
+  // "published" there would silently do nothing on a Save Draft.
+  if (input.status && input.status !== status) {
+    if (input.status === "PUBLISHED" || input.status === "SCHEDULED") {
+      await requirePermission("content.publish");
+      const issues = blockingIssues(snap);
+      if (issues.length > 0) {
+        return { ok: false, blocked: true, issues: issues.map((i) => i.label), message: "Complete required fields before publishing." };
+      }
+    }
+    status = input.status;
+    message =
+      status === "PUBLISHED" ? "Post published."
+      : status === "DRAFT" ? "Moved back to draft."
+      : `Status set to ${status.toLowerCase()}.`;
   }
 
   const existing = await db.article.findUnique({ where: { id }, select: { publishedAt: true } });

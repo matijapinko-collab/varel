@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
 import { fetchPartnerFeed } from "@/server/import-offers";
+import { publishDueScheduledPosts } from "@/server/actions/posts";
 
 export const maxDuration = 120;
 
@@ -87,6 +88,9 @@ export async function GET(request: Request) {
     }
   }
   summary.priceSnapshots = snapshots;
+
+  // 5. Publish posts whose scheduled time has passed.
+  summary.scheduledPostsPublished = await publishDueScheduledPosts();
 
   await audit({
     action: "UPDATE",
