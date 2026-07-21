@@ -5,6 +5,7 @@ import { isLocale, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { getLanguage } from "@/lib/content";
 import { db } from "@/lib/db";
+import { postCategorySelect, postPathFor } from "@/lib/post-url";
 
 export async function generateMetadata(
   props: PageProps<"/[locale]/guides">
@@ -26,7 +27,7 @@ export default async function GuidesPage(props: PageProps<"/[locale]/guides">) {
           status: "PUBLISHED",
           article: { status: "PUBLISHED", deletedAt: null },
         },
-        include: { article: { include: { author: true } } },
+        include: { article: { include: { author: true, ...postCategorySelect } } },
         orderBy: { updatedAt: "desc" },
         take: 50,
       })
@@ -42,7 +43,7 @@ export default async function GuidesPage(props: PageProps<"/[locale]/guides">) {
           {guides.map((g) => (
             <Link
               key={g.id}
-              href={`/${locale}/guides/${g.slug}`}
+              href={postPathFor(locale, g.slug, g.article, g.languageId)}
               className="group rounded-card border border-border bg-card p-6 transition-all hover:border-primary/40 hover:shadow-md"
             >
               <div className="text-xs font-semibold uppercase tracking-wide text-primary">
