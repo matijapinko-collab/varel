@@ -198,7 +198,15 @@ export default async function EditToolPage(
           </Field>
         </FormSection>
 
-        <SeoFields entityType="TOOL" entityId={tool.id} languageId={language.id} />
+        <SeoFields
+          entityType="TOOL"
+          entityId={tool.id}
+          languageId={language.id}
+          title={tool.name}
+          slug={tr?.slug ?? tool.slug}
+          body={tr?.longDescription ?? tr?.shortDescription ?? ""}
+          publicPath={`/${language.code}/tools/${tr?.slug ?? tool.slug}`}
+        />
 
         <SubmitButton label="Save tool" />
       </form>

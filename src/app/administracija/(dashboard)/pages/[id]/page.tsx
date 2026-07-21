@@ -112,7 +112,14 @@ export default async function PageBuilderPage(props: PageProps<"/administracija/
             label={`Use as homepage for ${page.language.nativeName}`}
             defaultChecked={page.isHomepage}
           />
-          <SeoFields entityType="PAGE" entityId={page.id} languageId={page.languageId} />
+          <SeoFields
+            entityType="PAGE"
+            entityId={page.id}
+            languageId={page.languageId}
+            title={page.title}
+            slug={page.slug}
+            publicPath={previewUrl}
+          />
           <SubmitButton label="Save page settings" />
         </form>
       </details>

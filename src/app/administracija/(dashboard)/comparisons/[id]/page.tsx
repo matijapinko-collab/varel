@@ -131,7 +131,15 @@ export default async function EditComparisonPage(
           </Field>
         </FormSection>
 
-        <SeoFields entityType="COMPARISON" entityId={comparison.id} languageId={language.id} />
+        <SeoFields
+          entityType="COMPARISON"
+          entityId={comparison.id}
+          languageId={language.id}
+          title={tr?.title ?? ""}
+          slug={tr?.slug ?? ""}
+          body={tr?.body ?? ""}
+          publicPath={`/${language.code}/compare/${tr?.slug ?? ""}`}
+        />
         <SubmitButton label="Save comparison" />
       </form>
     </div>
