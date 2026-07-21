@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
 import { requirePermission, slugify, fd, fdBool } from "./helpers";
 import { saveSeoFromForm } from "./seo";
+import { assertUsableSlug } from "@/lib/reserved-slugs";
 import type { ContentStatus, Prisma } from "@/generated/prisma/client";
 
 export async function createPage(form: FormData) {
@@ -14,11 +15,14 @@ export async function createPage(form: FormData) {
   const languageId = fd(form, "languageId");
   if (!title || !languageId) throw new Error("Title and language are required");
 
+  const slug = slugify(fd(form, "slug") || title);
+  assertUsableSlug(slug, "stranica");
+
   const page = await db.page.create({
     data: {
       languageId,
       title,
-      slug: slugify(fd(form, "slug") || title),
+      slug,
       template: "builder",
       createdById: userId,
     },
@@ -32,11 +36,14 @@ export async function savePageSettings(pageId: string, form: FormData) {
   const status = (fd(form, "status") || "DRAFT") as ContentStatus;
   const isHomepage = fdBool(form, "isHomepage");
 
+  const slug = slugify(fd(form, "slug") || fd(form, "title"));
+  assertUsableSlug(slug, "stranica");
+
   const page = await db.page.update({
     where: { id: pageId },
     data: {
       title: fd(form, "title"),
-      slug: slugify(fd(form, "slug") || fd(form, "title")),
+      slug,
       status,
       isHomepage,
       publishedAt: status === "PUBLISHED" ? new Date() : undefined,

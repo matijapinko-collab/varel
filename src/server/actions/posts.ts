@@ -10,6 +10,8 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
 import { requirePermission, fd, slugify } from "./helpers";
 import { sanitizePostHtml } from "@/lib/sanitize";
+import { ACADEMY_SECTION } from "@/lib/academy/config";
+import { wordsToMinutes } from "@/lib/reading-time";
 import {
   blockingIssues,
   seoChecks,
@@ -80,6 +82,15 @@ export type PostSaveInput = {
     summary: string;
     ctaLabel: string;
     ctaUrl: string;
+  };
+  // Varel Academy — section membership plus its own classification.
+  academy: {
+    enabled: boolean;
+    format: string | null;
+    difficulty: string | null;
+    stages: string[];
+    topicIds: string[];
+    premium: boolean;
   };
   // Varel Verdict
   verdict: {
@@ -315,6 +326,25 @@ export async function savePost(
   const seoCompletionScore = score([...seoChecks(snap)]);
   const llmCompletionScore = score([...llmChecks(snap)]);
 
+  const title = input.title.trim() || "Untitled post";
+  const slug = slugify(input.slug || title);
+
+  // Slugs are unique per language across every post, so a clash used to
+  // surface as a raw Prisma error in the editor's face. Check first and say so
+  // in words the editor can act on.
+  const slugTaken = await db.articleTranslation.findFirst({
+    where: { languageId, slug, articleId: { not: id } },
+    select: { title: true },
+  });
+  if (slugTaken) {
+    return {
+      ok: false,
+      blocked: true,
+      issues: [`Slug "${slug}" već koristi post „${slugTaken.title}".`],
+      message: "Odaberite drugi permalink — dva posta na istom jeziku ne mogu dijeliti slug.",
+    };
+  }
+
   await db.article.update({
     where: { id },
     data: {
@@ -334,13 +364,22 @@ export async function savePost(
       lastReviewedAt: input.llm.lastReviewedAt ? new Date(input.llm.lastReviewedAt) : null,
       lastTestedAt: input.llm.lastTestedAt ? new Date(input.llm.lastTestedAt) : null,
       pricingCheckedAt: input.llm.pricingCheckedAt ? new Date(input.llm.pricingCheckedAt) : null,
+      // Academy. Clearing the toggle clears the classification with it, so a
+      // post that leaves the section cannot linger in Academy filters.
+      contentSection: input.academy.enabled ? ACADEMY_SECTION : null,
+      academyFormat: input.academy.enabled ? input.academy.format : null,
+      academyDifficulty: input.academy.enabled ? input.academy.difficulty : null,
+      academyStagesJson: input.academy.enabled ? input.academy.stages : undefined,
+      academyTopicIdsJson: input.academy.enabled ? input.academy.topicIds : undefined,
+      academyPremium: input.academy.enabled ? input.academy.premium : false,
+      // Stored, not computed per render — the library filters on it.
+      readingMinutes: wordsToMinutes(input.body),
     },
   });
 
-  const title = input.title.trim() || "Untitled post";
   const trData = {
     title,
-    slug: slugify(input.slug || title),
+    slug,
     excerpt: input.excerpt || null,
     body: input.body ? sanitizePostHtml(input.body) : null,
     focusKeyword: input.focusKeyword || null,

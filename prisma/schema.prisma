@@ -685,6 +685,23 @@ model Article {
   lastTestedAt             DateTime?
   pricingCheckedAt         DateTime?
 
+  // Varel Academy. contentSection marks the post as a first-class section
+  // member ("academy"); it is indexed so the library can be filtered in SQL
+  // rather than by matching a magic category id.
+  // The remaining fields are stable internal values (never display labels) —
+  // see src/lib/academy/config.ts. They are plain strings, not Postgres enums,
+  // because this list will keep changing and enum changes are migrations, which
+  // on this project have to travel through a one-shot endpoint.
+  contentSection      String?
+  academyFormat       String?
+  academyDifficulty   String?
+  academyStagesJson   Json?
+  academyTopicIdsJson Json?
+  readingMinutes      Int?
+  academyPremium      Boolean   @default(false)
+  learningPathId      String?
+  lessonPosition      Int?
+
   authorProfile   Author?                @relation("ArticleAuthorProfile", fields: [authorProfileId], references: [id])
   author          User?                  @relation("ArticleAuthor", fields: [authorId], references: [id])
   reviewer        User?                  @relation("ArticleReviewer", fields: [reviewerId], references: [id])
@@ -700,6 +717,7 @@ model Article {
   @@index([status])
   @@index([primaryCategoryId])
   @@index([authorProfileId])
+  @@index([contentSection, status])
   @@map("articles")
 }
 

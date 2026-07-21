@@ -6,6 +6,7 @@ import { ToolCard, type ToolCardData } from "@/components/cards/tool-card";
 import { ProsConsBox } from "@/components/blocks/pros-cons-box";
 import { ComparisonBox, type ComparisonTool } from "@/components/blocks/comparison-box";
 import { VerdictBox } from "@/components/blocks/verdict-box";
+import { wordsToMinutes } from "@/lib/reading-time";
 import { JsonLd, faqJsonLd, articleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { getContentSettings, resolveArticleAuthor, localizeAuthor } from "@/lib/authors";
 import { AuthorBox } from "@/components/content/author-box";
@@ -15,12 +16,6 @@ import type { GuideRecord } from "@/lib/guide-query";
 
 function toStrings(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-}
-
-function wordsToMinutes(html: string | null): number {
-  if (!html) return 1;
-  const words = html.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.round(words / 220));
 }
 
 /**

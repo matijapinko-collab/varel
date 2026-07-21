@@ -29,6 +29,7 @@ export type PostRow = {
   previewLocale: string;
   /** Canonical public URL, resolved server-side from the post's category. */
   publicUrl: string;
+  isAcademy: boolean;
 };
 
 type Lang = { id: string; code: string; nativeName: string };
@@ -129,6 +130,7 @@ export function PostsTable({ rows, languages }: { rows: PostRow[]; languages: La
                     </td>
                     <td className="px-3 py-2.5 text-muted">{row.author}</td>
                     <td className="px-3 py-2.5 text-xs">
+                      {row.isAcademy && <span className="mr-1 rounded bg-primary/10 px-1.5 py-0.5 font-semibold text-primary">Akademija</span>}
                       {row.category ? <span className="rounded bg-soft px-1.5 py-0.5 text-primary">{row.category}</span> : <span className="text-amber-600">— none —</span>}
                     </td>
                     <td className="px-3 py-2.5"><ScoreCell score={row.seoScore} editUrl={`/administracija/posts/${row.id}/edit`} /></td>

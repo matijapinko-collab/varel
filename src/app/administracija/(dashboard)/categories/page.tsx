@@ -4,6 +4,7 @@ import { PageHeader, AdminTable, StatusBadge } from "@/components/admin/ui";
 import { generateLocalizedCategorySlugs } from "@/server/actions/categories";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { deleteCategory } from "@/server/actions/categories";
+import { seedAcademyCategories } from "@/server/actions/academy";
 
 export default async function AdminCategoriesPage() {
   const categories = await db.category.findMany({
@@ -28,6 +29,15 @@ export default async function AdminCategoriesPage() {
         <span className="ml-2 text-xs text-muted">
           Fills each language&apos;s slug from its translated name (e.g. &ldquo;AI alati&rdquo; → <code>ai-alati</code>),
           so Croatian post URLs read /hr/ai-alati/… Hand-edited slugs are left alone.
+        </span>
+      </form>
+      <form action={seedAcademyCategories} className="mb-4">
+        <button className="rounded-lg border border-border px-3 py-1.5 text-sm hover:border-primary">
+          Seed Academy categories
+        </button>
+        <span className="ml-2 text-xs text-muted">
+          Creates the <code>Akademija</code> / <code>Academy</code> parent plus its 15 topics. Safe to
+          re-run — it matches on slug, refreshes names, and never overwrites a slug you edited.
         </span>
       </form>
       <AdminTable

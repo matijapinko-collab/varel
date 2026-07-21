@@ -4,6 +4,7 @@ import { createPost } from "@/server/actions/posts";
 import { PostsTable, type PostRow } from "@/components/admin/posts-table";
 import type { Prisma } from "@/generated/prisma/client";
 import { postPathFor } from "@/lib/post-url";
+import { ACADEMY_SECTION } from "@/lib/academy/config";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ const TABS = [
   { key: "PUBLISHED", label: "Published" },
   { key: "DRAFT", label: "Drafts" },
   { key: "scheduled", label: "Scheduled" },
+  { key: "academy", label: "Academy" },
   { key: "ARCHIVED", label: "Archived" },
   { key: "trash", label: "Trash" },
 ];
@@ -23,6 +25,7 @@ function whereFor(status: string, q: string, languageId: string): Prisma.Article
 
   if (status === "PUBLISHED" || status === "DRAFT" || status === "ARCHIVED") base.status = status;
   if (status === "scheduled") base.scheduledAt = { gt: new Date() };
+  if (status === "academy") base.contentSection = ACADEMY_SECTION;
 
   if (q) {
     base.translations = { some: { title: { contains: q, mode: "insensitive" } } };
@@ -60,6 +63,7 @@ export default async function PostsPage(props: PageProps<"/administracija/posts"
       db.article.count({ where: { deletedAt: null, status: "PUBLISHED" } }),
       db.article.count({ where: { deletedAt: null, status: "DRAFT" } }),
       db.article.count({ where: { deletedAt: null, scheduledAt: { gt: new Date() } } }),
+      db.article.count({ where: { deletedAt: null, contentSection: ACADEMY_SECTION } }),
       db.article.count({ where: { deletedAt: null, status: "ARCHIVED" } }),
       db.article.count({ where: { deletedAt: { not: null } } }),
     ]),
@@ -70,8 +74,9 @@ export default async function PostsPage(props: PageProps<"/administracija/posts"
     PUBLISHED: counts[1],
     DRAFT: counts[2],
     scheduled: counts[3],
-    ARCHIVED: counts[4],
-    trash: counts[5],
+    academy: counts[4],
+    ARCHIVED: counts[5],
+    trash: counts[6],
   };
 
   const rows: PostRow[] = articles.map((a) => {
@@ -99,6 +104,7 @@ export default async function PostsPage(props: PageProps<"/administracija/posts"
       aiScore: tr?.llmCompletionScore ?? null,
       category: catName,
       previewLocale: tr?.language.code ?? "hr",
+      isAcademy: a.contentSection === ACADEMY_SECTION,
       publicUrl: postPathFor(tr?.language.code ?? "hr", tr?.slug ?? "", a, tr?.languageId),
     };
   });

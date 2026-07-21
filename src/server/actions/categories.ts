@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
 import { requirePermission, slugify, fd, fdBool, fdNum } from "./helpers";
 import { saveSeoFromForm } from "./seo";
+import { assertUsableSlug, isReservedSegment } from "@/lib/reserved-slugs";
 import type { ContentStatus } from "@/generated/prisma/client";
 
 /**
@@ -40,6 +41,10 @@ export async function generateLocalizedCategorySlugs(): Promise<void> {
       if (!base || base === t.slug) continue;
 
       const taken = used.get(t.languageId)!;
+      // A translated name like "Vodiči" slugifies to "vodici", but a name that
+      // lands on a route segment would silently shadow that route.
+      if (isReservedSegment(base)) continue;
+
       let candidate = base;
       let n = 2;
       while (taken.has(candidate)) candidate = `${base}-${n++}`;
@@ -61,6 +66,7 @@ export async function createCategory(form: FormData) {
   const name = fd(form, "name");
   if (!name) throw new Error("Name is required");
   const slug = slugify(fd(form, "slug") || name);
+  assertUsableSlug(slug, "kategorija");
 
   const category = await db.category.create({ data: { slug } });
   // Create the name for every enabled language as a starting point.
@@ -77,10 +83,13 @@ export async function createCategory(form: FormData) {
 export async function saveCategory(categoryId: string, languageId: string, form: FormData) {
   const { userId } = await requirePermission("tools.manage");
 
+  const slug = slugify(fd(form, "slug"));
+  assertUsableSlug(slug, "kategorija");
+
   await db.category.update({
     where: { id: categoryId },
     data: {
-      slug: slugify(fd(form, "slug")),
+      slug,
       icon: fd(form, "icon") || null,
       isFeatured: fdBool(form, "isFeatured"),
       position: fdNum(form, "position") ?? 0,
@@ -91,9 +100,11 @@ export async function saveCategory(categoryId: string, languageId: string, form:
 
   const trName = fd(form, "tr_name");
   if (trName) {
+    const trSlug = slugify(fd(form, "tr_slug") || trName);
+    assertUsableSlug(trSlug, "kategorija");
     const data = {
       name: trName,
-      slug: slugify(fd(form, "tr_slug") || trName),
+      slug: trSlug,
       description: fd(form, "tr_description") || null,
     };
     await db.categoryTranslation.upsert({

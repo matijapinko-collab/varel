@@ -7,6 +7,7 @@ import { ChevronUp, ChevronDown, Plus, X } from "lucide-react";
 import { RichTextEditor } from "./rich-text-editor";
 import { RevisionsPanel, type RevisionItem } from "./revisions-panel";
 import { postPath } from "@/lib/post-url";
+import { formatOptions, difficultyOptions, businessStageOptions } from "@/lib/academy/config";
 import { savePost, autosavePost, trashPost, type PostSaveInput } from "@/server/actions/posts";
 import {
   contentChecks,
@@ -82,6 +83,14 @@ export type PostEditorData = {
     ctaUrl: string;
   };
   verdict: { enabled: boolean; headline: string; summary: string; bestFor: string; skipIf: string; rating: number | null };
+  academy: {
+    enabled: boolean;
+    format: string | null;
+    difficulty: string | null;
+    stages: string[];
+    topicIds: string[];
+    premium: boolean;
+  };
 };
 
 export type EditorOptions = {
@@ -92,6 +101,10 @@ export type EditorOptions = {
   media: { id: string; url: string; name: string }[];
   siteUrl: string;
   revisions: RevisionItem[];
+  /** The Academy topics (child categories of the Academy root). */
+  academyTopics: { id: string; name: string }[];
+  /** Category that owns the /akademija/ URL segment; null until seeded. */
+  academyRootCategoryId: string | null;
 };
 
 const OUTLINE = [
@@ -194,6 +207,7 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
       prosCons: f.prosCons,
       comparison: f.comparison,
       verdict: f.verdict,
+      academy: f.academy,
     };
   }
 
@@ -265,6 +279,16 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
     options.categories.find((c) => c.id === f.primaryCategoryId)?.slug ?? null;
   const publicPath = postPath(data.languageCode, f.slug, selectedCategorySlug);
   const permalinkPrefix = `/${data.languageCode}/${selectedCategorySlug ?? "guides"}/`;
+
+  // Only warn when a live URL is about to move: the post is published, is not
+  // in the Academy yet, and sits under a different category.
+  const academyUrlWarning =
+    !f.academy.enabled &&
+    data.status === "PUBLISHED" &&
+    options.academyRootCategoryId &&
+    f.primaryCategoryId !== options.academyRootCategoryId
+      ? permalinkPrefix
+      : null;
   // Drafts 404 on the public route, so preview them through a tokenized link.
   const previewHref = isPublished
     ? publicPath
@@ -420,6 +444,101 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
               <Field label="Who should use it"><input className="editor-input" value={f.verdict.bestFor} onChange={(e) => up("verdict", { ...f.verdict, bestFor: e.target.value })} /></Field>
               <Field label="Who should skip it"><input className="editor-input" value={f.verdict.skipIf} onChange={(e) => up("verdict", { ...f.verdict, skipIf: e.target.value })} /></Field>
             </div>
+          </Panel>
+
+          {/* Varel Academy */}
+          <Panel
+            title="Prikaži u Varel Akademiji"
+            enabled={f.academy.enabled}
+            onToggle={(v) => {
+              // Turning it on moves the post under the Academy URL segment,
+              // because the primary category is what postPath() reads.
+              up("academy", { ...f.academy, enabled: v });
+              if (v && options.academyRootCategoryId) up("primaryCategoryId", options.academyRootCategoryId);
+            }}
+          >
+            {!options.academyRootCategoryId ? (
+              <p className="text-sm text-amber-600">
+                Kategorija Akademije još ne postoji. Otvorite Kategorije i kliknite
+                &ldquo;Seed Academy categories&rdquo;, pa se vratite ovdje.
+              </p>
+            ) : (
+              <>
+                {academyUrlWarning && (
+                  <p className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30">
+                    Ovaj post je objavljen na {academyUrlWarning}. Uključivanjem Akademije adresa se
+                    mijenja; stara ostaje raditi kroz trajno preusmjerenje (308).
+                  </p>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Format sadržaja">
+                    <select className="editor-input" value={f.academy.format ?? ""} onChange={(e) => up("academy", { ...f.academy, format: e.target.value || null })}>
+                      <option value="">— odaberi —</option>
+                      {formatOptions("hr").map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Razina težine">
+                    <select className="editor-input" value={f.academy.difficulty ?? ""} onChange={(e) => up("academy", { ...f.academy, difficulty: e.target.value || null })}>
+                      <option value="">— odaberi —</option>
+                      {difficultyOptions("hr").map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </Field>
+                </div>
+
+                <div className="mt-3">
+                  <Field label="Faza poslovanja (može ih biti više)">
+                    <div className="grid gap-1 sm:grid-cols-2">
+                      {businessStageOptions("hr").map((o) => (
+                        <label key={o.value} className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={f.academy.stages.includes(o.value)}
+                            onChange={(e) => up("academy", {
+                              ...f.academy,
+                              stages: e.target.checked
+                                ? [...f.academy.stages, o.value]
+                                : f.academy.stages.filter((x) => x !== o.value),
+                            })}
+                          />
+                          {o.label}
+                        </label>
+                      ))}
+                    </div>
+                  </Field>
+                </div>
+
+                <div className="mt-3">
+                  <Field label="Teme Akademije">
+                    <div className="grid max-h-44 gap-1 overflow-y-auto sm:grid-cols-2">
+                      {options.academyTopics.map((t) => (
+                        <label key={t.id} className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={f.academy.topicIds.includes(t.id)}
+                            onChange={(e) => up("academy", {
+                              ...f.academy,
+                              topicIds: e.target.checked
+                                ? [...f.academy.topicIds, t.id]
+                                : f.academy.topicIds.filter((x) => x !== t.id),
+                            })}
+                          />
+                          {t.name}
+                        </label>
+                      ))}
+                    </div>
+                  </Field>
+                </div>
+
+                <label className="mt-3 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={f.academy.premium}
+                    onChange={(e) => up("academy", { ...f.academy, premium: e.target.checked })}
+                  />
+                  Premium sadržaj
+                </label>
+              </>
+            )}
           </Panel>
         </div>
 

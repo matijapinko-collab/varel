@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { PostEditor, type PostEditorData, type EditorOptions } from "@/components/admin/editor/post-editor";
+import { ACADEMY_ROOT, ACADEMY_SECTION, cleanStages } from "@/lib/academy/config";
 
 export const dynamic = "force-dynamic";
 
@@ -158,6 +159,14 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
       ctaLabel: tr?.comparisonCtaLabel ?? "",
       ctaUrl: tr?.comparisonCtaUrl ?? "",
     },
+    academy: {
+      enabled: article.contentSection === ACADEMY_SECTION,
+      format: article.academyFormat,
+      difficulty: article.academyDifficulty,
+      stages: cleanStages(article.academyStagesJson),
+      topicIds: toStrings(article.academyTopicIdsJson),
+      premium: article.academyPremium,
+    },
     verdict: {
       enabled: article.varelVerdictEnabled,
       headline: tr?.varelVerdictHeadline ?? "",
@@ -167,6 +176,13 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
       rating: tr?.varelVerdictRating ?? null,
     },
   };
+
+  // Academy root + its topics. Absent until the categories are seeded, which
+  // the panel handles by telling the editor what to do rather than breaking.
+  const academyRoot = categories.find((c) => c.slug === ACADEMY_ROOT.enSlug) ?? null;
+  const academyTopics = academyRoot
+    ? categories.filter((c) => c.parentCategoryId === academyRoot.id)
+    : [];
 
   const options: EditorOptions = {
     categories: categories.map((c) => ({ id: c.id, name: categoryName(c), slug: categorySlug(c) })),
@@ -181,6 +197,8 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
     })),
     media: media.map((m) => ({ id: m.id, url: m.url, name: m.filename })),
     siteUrl,
+    academyRootCategoryId: academyRoot?.id ?? null,
+    academyTopics: academyTopics.map((c) => ({ id: c.id, name: categoryName(c) })),
     revisions: revisions.map((r) => ({
       id: r.id,
       title: r.title,
