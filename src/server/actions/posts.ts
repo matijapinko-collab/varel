@@ -126,6 +126,98 @@ function snapshotOf(input: PostSaveInput): PostSnapshot {
 const clean = (arr: string[]) => arr.map((s) => s.trim()).filter(Boolean);
 
 /** Full save from the classic editor. Handles Save Draft / Publish / Update. */
+/** How many revisions to keep per article translation. */
+const REVISION_LIMIT = 30;
+
+/** Fields captured in a revision snapshot (everything an editor can change). */
+const REVISION_FIELDS = [
+  "title", "slug", "excerpt", "body", "focusKeyword", "secondaryKeywordsJson", "status",
+  "featuredImageAlt", "prosConsHeading", "prosConsIntro", "prosJson", "consJson",
+  "comparisonHeading", "comparisonSummary", "comparisonCtaLabel", "comparisonCtaUrl",
+  "aiSummary", "directAnswer", "keyTakeawaysJson", "bestForJson", "notIdealForJson",
+  "mentionedEntityIdsJson", "mentionedEntitiesText", "sourceReferencesJson", "faqJson",
+  "varelVerdictHeadline", "varelVerdictSummary", "varelVerdictBestFor", "varelVerdictSkipIf",
+  "varelVerdictRating",
+] as const;
+
+/**
+ * Stores the current translation as a revision, then prunes old ones.
+ * No-op when the translation does not exist yet (first save has nothing to keep).
+ */
+async function recordRevision(articleId: string, languageId: string, kind: string, userId: string) {
+  const current = await db.articleTranslation.findUnique({
+    where: { articleId_languageId: { articleId, languageId } },
+  });
+  if (!current) return;
+
+  const snapshot: Record<string, unknown> = {};
+  for (const f of REVISION_FIELDS) snapshot[f] = (current as Record<string, unknown>)[f] ?? null;
+
+  const user = await db.user.findUnique({ where: { id: userId }, select: { name: true, username: true } });
+  await db.articleRevision.create({
+    data: {
+      articleId, languageId,
+      snapshotJson: snapshot as never,
+      title: current.title,
+      status: current.status,
+      kind,
+      createdById: userId,
+      createdByName: user?.name ?? user?.username ?? null,
+    },
+  });
+
+  // Keep only the newest REVISION_LIMIT entries for this translation.
+  const old = await db.articleRevision.findMany({
+    where: { articleId, languageId },
+    orderBy: { createdAt: "desc" },
+    skip: REVISION_LIMIT,
+    select: { id: true },
+  });
+  if (old.length) {
+    await db.articleRevision.deleteMany({ where: { id: { in: old.map((o) => o.id) } } });
+  }
+}
+
+/** Revisions for the editor panel, newest first. */
+export async function listRevisions(articleId: string, languageId: string) {
+  await requirePermission("content.edit");
+  return db.articleRevision.findMany({
+    where: { articleId, languageId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, title: true, status: true, kind: true, createdByName: true, createdAt: true },
+  });
+}
+
+/**
+ * Rolls the translation back to a revision. The current state is snapshotted
+ * first (kind "restore"), so a restore is itself undoable.
+ */
+export async function restoreRevision(revisionId: string): Promise<{ ok: boolean; message: string }> {
+  const { userId } = await requirePermission("content.edit");
+  const rev = await db.articleRevision.findUnique({ where: { id: revisionId } });
+  if (!rev) return { ok: false, message: "Revision not found." };
+
+  await recordRevision(rev.articleId, rev.languageId, "restore", userId);
+
+  const snap = (rev.snapshotJson ?? {}) as Record<string, unknown>;
+  const data: Record<string, unknown> = {};
+  for (const f of REVISION_FIELDS) if (f in snap) data[f] = snap[f];
+
+  await db.articleTranslation.update({
+    where: { articleId_languageId: { articleId: rev.articleId, languageId: rev.languageId } },
+    data: data as never,
+  });
+  // Keep the article-level status in step with the restored translation.
+  if (typeof snap.status === "string") {
+    await db.article.update({ where: { id: rev.articleId }, data: { status: snap.status as ContentStatus } });
+  }
+
+  await audit({ userId, action: "UPDATE", entityType: "ARTICLE", entityId: rev.articleId, details: { restoredRevisionId: revisionId } });
+  revalidatePath(LIST);
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Revision restored." };
+}
+
 export async function savePost(
   id: string,
   languageId: string,
@@ -223,6 +315,9 @@ export async function savePost(
     seoCompletionScore,
     llmCompletionScore,
   };
+  // Snapshot the PREVIOUS state before overwriting, so the editor can roll back.
+  await recordRevision(id, languageId, input.action === "publish" || input.action === "update" ? "publish" : "save", userId);
+
   await db.articleTranslation.upsert({
     where: { articleId_languageId: { articleId: id, languageId } },
     create: { articleId: id, languageId, ...trData },

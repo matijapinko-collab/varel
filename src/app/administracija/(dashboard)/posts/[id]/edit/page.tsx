@@ -59,7 +59,7 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
   const language = languages.find((l) => l.code === langCode) ?? languages.find((l) => l.code === "hr") ?? languages[0];
   const tr = article.translations.find((t) => t.languageId === language.id);
 
-  const [seo, featured, media] = await Promise.all([
+  const [seo, featured, media, revisions] = await Promise.all([
     db.seoMetadata.findUnique({
       where: { entityType_entityId_languageId: { entityType: "ARTICLE", entityId: id, languageId: language.id } },
     }),
@@ -71,6 +71,11 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
       orderBy: { createdAt: "desc" },
       take: 60,
       select: { id: true, url: true, filename: true },
+    }),
+    db.articleRevision.findMany({
+      where: { articleId: id, languageId: language.id },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, title: true, status: true, kind: true, createdByName: true, createdAt: true },
     }),
   ]);
 
@@ -169,6 +174,14 @@ export default async function EditPostPage(props: PageProps<"/administracija/pos
     })),
     media: media.map((m) => ({ id: m.id, url: m.url, name: m.filename })),
     siteUrl,
+    revisions: revisions.map((r) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      kind: r.kind,
+      createdByName: r.createdByName,
+      createdAt: r.createdAt.toISOString(),
+    })),
   };
 
   return <PostEditor data={data} options={options} />;

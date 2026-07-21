@@ -280,6 +280,7 @@ model Language {
   toolTranslations           ToolTranslation[]
   categoryTranslations       CategoryTranslation[]
   articleTranslations        ArticleTranslation[]
+  articleRevisions           ArticleRevision[]
   editorialTranslations      EditorialTranslation[]
   newsTranslations           NewsTranslation[]
   comparisonTranslations     ComparisonTranslation[]
@@ -692,6 +693,7 @@ model Article {
   comparisonToolA Tool?                  @relation("ComparisonToolA", fields: [comparisonToolAId], references: [id])
   comparisonToolB Tool?                  @relation("ComparisonToolB", fields: [comparisonToolBId], references: [id])
   translations    ArticleTranslation[]
+  revisions       ArticleRevision[]
   tools           ArticleTool[]
   affiliateLinks  ArticleAffiliateLink[]
 
@@ -847,6 +849,31 @@ model ArticleTranslation {
   @@unique([articleId, languageId])
   @@unique([languageId, slug])
   @@map("article_translations")
+}
+
+/// Point-in-time snapshot of one article translation, written before each
+/// manual save/publish so an editor can compare and roll back. Autosaves do
+/// NOT create revisions (they would flood the history).
+model ArticleRevision {
+  id           String        @id @default(cuid())
+  articleId    String
+  languageId   String
+  /// Full snapshot of the translation fields at that moment.
+  snapshotJson Json
+  /// Denormalised for the list UI so it renders without parsing the snapshot.
+  title        String
+  status       ContentStatus
+  /// "save" | "publish" | "restore"
+  kind         String        @default("save")
+  createdById  String?
+  createdByName String?
+  createdAt    DateTime      @default(now())
+
+  article  Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@index([articleId, languageId, createdAt])
+  @@map("article_revisions")
 }
 
 model ArticleTool {

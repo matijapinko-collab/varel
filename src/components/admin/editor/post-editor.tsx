@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ChevronUp, ChevronDown, Plus, X } from "lucide-react";
 import { RichTextEditor } from "./rich-text-editor";
+import { RevisionsPanel, type RevisionItem } from "./revisions-panel";
 import { savePost, autosavePost, trashPost, type PostSaveInput } from "@/server/actions/posts";
 import {
   contentChecks,
@@ -89,6 +90,7 @@ export type EditorOptions = {
   authors: { id: string; nameEn: string; nameHr: string; hasPhoto: boolean; hasBio: boolean }[];
   media: { id: string; url: string; name: string }[];
   siteUrl: string;
+  revisions: RevisionItem[];
 };
 
 const OUTLINE = [
@@ -451,6 +453,8 @@ export function PostEditor({ data, options }: { data: PostEditorData; options: E
               <button type="submit" className="text-xs text-red-500 hover:underline">Move to Trash</button>
             </form>
           </Box>
+
+          <RevisionsPanel revisions={options.revisions} />
 
           {/* Category */}
           <Box title="Category *">
