@@ -11,9 +11,13 @@ export const runtime = "nodejs";
  * in the editor) means the link is never stale.
  */
 export async function GET(_request: Request, ctx: { params: Promise<{ id: string }> }) {
+  // Always redirect within the origin the admin is actually being used on —
+  // NEXT_PUBLIC_SITE_URL can point elsewhere (e.g. :3000 while dev runs :3005).
+  const url = new URL(_request.url);
+
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.redirect(new URL("/administracija", process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"));
+    return NextResponse.redirect(new URL("/administracija", url.origin));
   }
 
   const { id } = await ctx.params;
@@ -24,7 +28,6 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
   if (!article) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   // Prefer the translation named in ?lang=, else the first one with a slug.
-  const url = new URL(_request.url);
   const wanted = url.searchParams.get("lang");
   const tr =
     (wanted && article.translations.find((t) => t.language?.code === wanted && t.slug)) ||
@@ -34,8 +37,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
   }
 
   const token = await signPreviewToken(article.id);
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? url.origin;
-  const target = new URL(`/${tr.language.code}/guides/${tr.slug}`, base);
+  const target = new URL(`/${tr.language.code}/guides/${tr.slug}`, url.origin);
   target.searchParams.set("preview", token);
   return NextResponse.redirect(target);
 }
