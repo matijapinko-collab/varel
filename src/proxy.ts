@@ -81,19 +81,27 @@ export function proxy(request: NextRequest) {
     return noIndex(NextResponse.next());
   }
 
-  // Varel Electric canonical route is /electro. /electric is an alias — redirect
-  // it to the canonical equivalent so there are no parallel admin systems
-  // (brief §28). /electric/admin → the superadmin login.
-  if (pathname === "/electric" || pathname.startsWith("/electric/")) {
-    let target: string;
-    if (pathname === "/electric/admin" || pathname.startsWith("/electric/admin")) {
-      target = "/electro/superadministracija";
-    } else {
-      target = pathname.replace(/^\/electric/, "/electro");
+  // Canonical Varel Electric company-admin console is /electro/administracija.
+  // All legacy/alias admin routes redirect here, preserving the subpath when it
+  // maps 1:1, else landing on the console dashboard (brief §3). No parallel
+  // administrations.
+  {
+    const adminAlias =
+      /^\/electric\/admin(\/|$)/.test(pathname) ||
+      /^\/electric\/administracija(\/|$)/.test(pathname) ||
+      /^\/electro\/admin(\/|$)/.test(pathname);
+    if (adminAlias) {
+      const sub = pathname.replace(/^\/(electric|electro)\/(admin|administracija)/, "");
+      const url = new URL(`/electro/administracija${sub}`, request.url);
+      url.search = request.nextUrl.search;
+      return noIndex(NextResponse.redirect(url, 307));
     }
-    const url = new URL(target, request.url);
+  }
+  // Other /electric/* paths are aliases of /electro/*.
+  if (pathname === "/electric" || pathname.startsWith("/electric/")) {
+    const url = new URL(pathname.replace(/^\/electric/, "/electro"), request.url);
     url.search = request.nextUrl.search;
-    return noIndex(NextResponse.redirect(url, 308));
+    return noIndex(NextResponse.redirect(url, 307));
   }
 
   // Varel Electric: /electro public marketing pages are indexable Croatian
@@ -108,7 +116,7 @@ export function proxy(request: NextRequest) {
       }
       return noIndex(NextResponse.next());
     }
-    if (pathname.startsWith("/electro/app")) {
+    if (pathname.startsWith("/electro/administracija")) {
       if (!request.cookies.has("electro_session")) {
         return noIndex(NextResponse.redirect(new URL("/electro/prijava", request.url)));
       }

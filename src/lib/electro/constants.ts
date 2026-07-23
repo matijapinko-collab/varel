@@ -1,6 +1,7 @@
 /** Varel Electric route bases (brief §4). */
 export const ELECTRO_BASE = "/electro";
-export const ELECTRO_APP_BASE = "/electro/app";
+/** Canonical company-admin console route (brief §3). Was /electro/app. */
+export const ELECTRO_APP_BASE = "/electro/administracija";
 export const ELECTRO_SUPERADMIN_BASE = "/electro/superadministracija";
 
 /** System role keys seeded by bootstrap (brief §7). */
