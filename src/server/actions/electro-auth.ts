@@ -19,6 +19,7 @@ import {
   getElectroContext,
   requireElectroContextAnyStatus,
   getElectroSuperadmin,
+  requireElectroSuperadmin,
 } from "@/lib/electro/auth/guard";
 import { validateElectroPassword } from "@/lib/electro/auth/password";
 import { findLiveInvite } from "@/lib/electro/invites";
@@ -193,4 +194,34 @@ export async function electroSuperadminLogout(): Promise<void> {
   if (sa) await electroAudit({ superadminId: sa.id, action: "sa_logout", entityType: "auth" });
   await clearElectroSaSession();
   redirect(`${ELECTRO_SUPERADMIN_BASE}/prijava`);
+}
+
+/** Superadmin changes their own password (e.g. rotating the seeded one). */
+export async function electroSuperadminChangePassword(
+  _prev: ElectroActionResult,
+  form: FormData
+): Promise<ElectroActionResult> {
+  const sa = await requireElectroSuperadmin();
+
+  const current = String(form.get("currentPassword") ?? "");
+  const next = String(form.get("newPassword") ?? "");
+  const repeat = String(form.get("repeatPassword") ?? "");
+
+  if (!(await verifyPassword(current, sa.passwordHash))) {
+    await electroAudit({ superadminId: sa.id, action: "sa_password_change_failed", entityType: "auth", after: { reason: "bad_current" } });
+    return { error: "Trenutna lozinka nije ispravna." };
+  }
+  if (next !== repeat) return { error: "Nove lozinke se ne podudaraju." };
+  const reused = await verifyPassword(next, sa.passwordHash);
+  const problem = validateElectroPassword(next, { reused });
+  if (problem) return { error: problem };
+
+  const updated = await db.electroSuperadmin.update({
+    where: { id: sa.id },
+    data: { passwordHash: await hashPassword(next), mustChangePassword: false, sessionVersion: { increment: 1 } },
+  });
+  // Re-issue a session for this device (the version bump logs out others).
+  await setElectroSaSession({ said: updated.id, sv: updated.sessionVersion });
+  await electroAudit({ superadminId: sa.id, action: "sa_password_changed", entityType: "auth" });
+  redirect(ELECTRO_SUPERADMIN_BASE);
 }

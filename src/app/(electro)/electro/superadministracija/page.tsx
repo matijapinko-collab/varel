@@ -62,6 +62,9 @@ export default async function ElectroSuperadminDashboard() {
           <Link href={`${ELECTRO_SUPERADMIN_BASE}/paketi`} className="rounded-lg border border-black/10 px-3 py-1.5 text-sm font-semibold hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5">
             Paketi i limiti
           </Link>
+          <Link href={`${ELECTRO_SUPERADMIN_BASE}/promjena-lozinke`} className="rounded-lg border border-black/10 px-3 py-1.5 text-sm font-semibold hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5">
+            Promjena lozinke
+          </Link>
           <form action={electroSuperadminLogout}>
             <button type="submit" className="rounded-lg border border-black/10 px-3 py-1.5 text-sm font-semibold hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5">
               Odjava
