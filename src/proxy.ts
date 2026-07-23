@@ -81,6 +81,21 @@ export function proxy(request: NextRequest) {
     return noIndex(NextResponse.next());
   }
 
+  // Varel Electric canonical route is /electro. /electric is an alias — redirect
+  // it to the canonical equivalent so there are no parallel admin systems
+  // (brief §28). /electric/admin → the superadmin login.
+  if (pathname === "/electric" || pathname.startsWith("/electric/")) {
+    let target: string;
+    if (pathname === "/electric/admin" || pathname.startsWith("/electric/admin")) {
+      target = "/electro/superadministracija";
+    } else {
+      target = pathname.replace(/^\/electric/, "/electro");
+    }
+    const url = new URL(target, request.url);
+    url.search = request.nextUrl.search;
+    return noIndex(NextResponse.redirect(url, 308));
+  }
+
   // Varel Electric: /electro public marketing pages are indexable Croatian
   // pages outside the locale scheme; the app and superadministration are
   // cookie-gated optimistically here and noindexed. Real authorization happens

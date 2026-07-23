@@ -103,5 +103,15 @@ export async function getElectroSuperadmin(): Promise<ElectroSuperadmin | null> 
 export async function requireElectroSuperadmin(): Promise<ElectroSuperadmin> {
   const sa = await getElectroSuperadmin();
   if (!sa) redirect(`${ELECTRO_SUPERADMIN_BASE}/prijava`);
+  // Forced password change (brief §4): a superadmin with a temporary password
+  // cannot reach any admin surface until they set a new one.
+  if (sa.mustChangePassword) redirect(`${ELECTRO_SUPERADMIN_BASE}/promjena-lozinke`);
+  return sa;
+}
+
+/** Guard for the change-password page: logged in, but the change not yet done. */
+export async function requireElectroSuperadminForPasswordChange(): Promise<ElectroSuperadmin> {
+  const sa = await getElectroSuperadmin();
+  if (!sa) redirect(`${ELECTRO_SUPERADMIN_BASE}/prijava`);
   return sa;
 }

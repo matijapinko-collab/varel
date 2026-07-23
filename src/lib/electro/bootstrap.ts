@@ -170,7 +170,8 @@ export async function ensureElectroBootstrap(): Promise<string[]> {
     }
   }
 
-  // 3. Initial global superadmin from env secrets.
+  // 3. Initial global superadmin from env secrets. Seeded with a temporary
+  //    password that must be changed on first login (brief §4).
   const u = process.env.ELECTRO_SUPERADMIN_USERNAME?.trim().toLowerCase();
   const e = process.env.ELECTRO_SUPERADMIN_EMAIL?.trim().toLowerCase();
   const p = process.env.ELECTRO_SUPERADMIN_INITIAL_PASSWORD;
@@ -180,9 +181,30 @@ export async function ensureElectroBootstrap(): Promise<string[]> {
     });
     if (!exists) {
       await db.electroSuperadmin.create({
-        data: { username: u, email: e, passwordHash: await hashPassword(p), isActive: true },
+        data: {
+          username: u,
+          email: e,
+          passwordHash: await hashPassword(p),
+          isActive: true,
+          mustChangePassword: true,
+        },
       });
       created.push("superadmin");
+    } else if (process.env.ELECTRO_SUPERADMIN_RESET === "true") {
+      // One-shot temporary-password resync (mirrors the Bisneys pattern):
+      // re-apply the env password and force a change. Remove the env flag
+      // afterwards so ordinary logins never reset the account.
+      await db.electroSuperadmin.update({
+        where: { id: exists.id },
+        data: {
+          email: e,
+          passwordHash: await hashPassword(p),
+          mustChangePassword: true,
+          isActive: true,
+          sessionVersion: { increment: 1 },
+        },
+      });
+      created.push("superadmin_reset");
     }
   }
 

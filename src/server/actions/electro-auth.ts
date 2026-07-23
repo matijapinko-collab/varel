@@ -19,7 +19,7 @@ import {
   getElectroContext,
   requireElectroContextAnyStatus,
   getElectroSuperadmin,
-  requireElectroSuperadmin,
+  requireElectroSuperadminForPasswordChange,
 } from "@/lib/electro/auth/guard";
 import { validateElectroPassword } from "@/lib/electro/auth/password";
 import { findLiveInvite } from "@/lib/electro/invites";
@@ -201,7 +201,7 @@ export async function electroSuperadminChangePassword(
   _prev: ElectroActionResult,
   form: FormData
 ): Promise<ElectroActionResult> {
-  const sa = await requireElectroSuperadmin();
+  const sa = await requireElectroSuperadminForPasswordChange();
 
   const current = String(form.get("currentPassword") ?? "");
   const next = String(form.get("newPassword") ?? "");
