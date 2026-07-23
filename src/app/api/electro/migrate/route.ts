@@ -46,9 +46,14 @@ export async function POST(req: NextRequest) {
 
   const statements = fixedStatements();
   try {
-    await db.$transaction(async (tx) => {
-      for (const stmt of statements) await tx.$executeRawUnsafe(stmt);
-    });
+    // DDL is transactional in Postgres; give the batch a generous window since
+    // 167 statements exceed the 5s default interactive-transaction timeout.
+    await db.$transaction(
+      async (tx) => {
+        for (const stmt of statements) await tx.$executeRawUnsafe(stmt);
+      },
+      { maxWait: 15_000, timeout: 120_000 }
+    );
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
