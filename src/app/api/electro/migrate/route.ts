@@ -15,9 +15,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function fixedStatements(): string[] {
+  // Each Prisma DDL block is prefixed with a `-- CreateX` comment line; strip
+  // comment lines *within* each statement rather than dropping the statement.
   return ELECTRO_MIGRATION_SQL.split(/;\s*\n/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !s.startsWith("--"));
+    .map((chunk) =>
+      chunk
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("--"))
+        .join("\n")
+        .trim()
+    )
+    .filter((s) => s.length > 0);
 }
 
 export async function POST(req: NextRequest) {
