@@ -27,10 +27,12 @@ const STATEMENTS = [
 ];
 
 export async function POST(req: NextRequest) {
-  const expected = process.env.CRON_SECRET;
+  // Accepts either the standing CRON_SECRET or a throwaway MIGRATE_TOKEN set in
+  // Vercel just for this run — both are removed once the migration is applied.
   const provided =
     req.headers.get("x-cron-secret") ?? new URL(req.url).searchParams.get("token");
-  if (!expected || provided !== expected) {
+  const accepted = [process.env.CRON_SECRET, process.env.MIGRATE_TOKEN].filter(Boolean);
+  if (!provided || !accepted.includes(provided)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const applied: string[] = [];
