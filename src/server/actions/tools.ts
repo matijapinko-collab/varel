@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateSiteContent } from "@/lib/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
@@ -126,6 +127,7 @@ export async function saveTool(toolId: string, languageId: string, form: FormDat
   await saveSeoFromForm(form, "TOOL", toolId, languageId);
   await audit({ userId, action: "UPDATE", entityType: "TOOL", entityId: toolId });
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 }
 
 export async function deleteTool(toolId: string) {

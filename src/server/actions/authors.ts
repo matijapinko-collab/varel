@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateSiteContent } from "@/lib/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
@@ -85,6 +86,7 @@ export async function createAuthor(form: FormData) {
   await audit({ userId, action: "CREATE", entityType: "AUTHOR", entityId: author.id, details: { internalName: author.internalName } });
   revalidatePath("/administracija/authors");
   revalidatePath("/", "layout");
+  revalidateSiteContent();
   redirect(`/administracija/authors/${author.id}/edit?saved=1`);
 }
 
@@ -97,6 +99,7 @@ export async function updateAuthor(id: string, form: FormData) {
   revalidatePath("/administracija/authors");
   revalidatePath(`/administracija/authors/${id}/edit`);
   revalidatePath("/", "layout");
+  revalidateSiteContent();
   redirect(`/administracija/authors/${id}/edit?saved=1`);
 }
 
@@ -107,6 +110,7 @@ export async function setDefaultAuthor(id: string) {
   await audit({ userId, action: "UPDATE", entityType: "AUTHOR", entityId: id, details: { setDefault: true } });
   revalidatePath("/administracija/authors");
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 }
 
 export async function toggleAuthorActive(id: string) {
@@ -120,4 +124,5 @@ export async function toggleAuthorActive(id: string) {
   await audit({ userId, action: "UPDATE", entityType: "AUTHOR", entityId: id, details: { isActive: !author.isActive } });
   revalidatePath("/administracija/authors");
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 }

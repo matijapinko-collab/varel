@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateSiteContent } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
 import { requirePermission } from "./helpers";
@@ -51,6 +52,7 @@ export async function seedAcademyCategories(): Promise<void> {
   });
   revalidatePath("/administracija/categories");
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 
   async function upsertTranslations(
     categoryId: string,

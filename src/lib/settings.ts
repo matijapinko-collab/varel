@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { cachePublic } from "@/lib/cache";
 import type { BrandingSetting } from "@/generated/prisma/client";
 
 /**
@@ -44,7 +45,7 @@ export type BrandingWithLogos = BrandingSetting & {
   ogImageUrl: string | null;
 };
 
-export async function getBranding(): Promise<BrandingWithLogos> {
+export const getBranding = cachePublic(async function getBrandingUncached(): Promise<BrandingWithLogos> {
   const row = await db.brandingSetting.findFirst();
   const base: BrandingSetting =
     row ??
@@ -75,4 +76,4 @@ export async function getBranding(): Promise<BrandingWithLogos> {
     faviconUrl: urlOf(base.faviconId),
     ogImageUrl: urlOf(base.defaultOgImageId),
   };
-}
+}, ["getBranding"]);

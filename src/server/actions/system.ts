@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateSiteContent } from "@/lib/cache";
 import bcrypt from "bcryptjs";
 import { generateSecret, generateURI } from "otplib";
 import { db } from "@/lib/db";
@@ -29,6 +30,7 @@ export async function saveLanguage(languageId: string, form: FormData) {
   await audit({ userId, action: "SETTINGS_UPDATE", entityType: "LANGUAGE", entityId: languageId });
   revalidatePath("/administracija/languages");
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 }
 
 export async function addLanguage(form: FormData) {

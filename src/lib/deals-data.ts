@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { cachePublic } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { getLanguage } from "@/lib/content";
 import type { Locale } from "@/lib/i18n/config";
@@ -23,7 +24,7 @@ const dealInclude = (languageId: string) => ({
 });
 
 export const getBestDeals = cache(
-  async (
+  cachePublic(async (
     locale: Locale,
     opts: {
       take?: number;
@@ -68,7 +69,7 @@ export const getBestDeals = cache(
       deals.sort((a, b) => (b.product?.editorRating ?? 0) - (a.product?.editorRating ?? 0));
     }
     return deals;
-  }
+  }, ["getBestDeals"])
 );
 
 /** Distinct brands + product categories present in published deals (for filters). */

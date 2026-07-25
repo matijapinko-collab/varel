@@ -136,7 +136,7 @@ export function DealCard({ deal, locale }: { deal: DealCardData; locale: Locale 
         <div className="mt-4 flex items-center justify-between gap-2">
           <span className="text-[11px] text-muted">
             {toNum(deal.offer?.currentPrice) != null && !deal.offer?.shippingCost ? `${t.shipping_may_vary} · ` : ""}
-            {lastChecked ? `${t.last_checked} ${lastChecked.toLocaleDateString(locale)}` : t.partner_offer}
+            {lastChecked ? `${t.last_checked} ${new Date(lastChecked).toLocaleDateString(locale)}` : t.partner_offer}
           </span>
         </div>
 

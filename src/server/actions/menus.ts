@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateSiteContent } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
 import { requirePermission, fdLines } from "./helpers";
@@ -32,6 +33,7 @@ export async function saveMenu(menuId: string, form: FormData) {
   }
   await audit({ userId, action: "UPDATE", entityType: "MENU", entityId: menuId });
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 }
 
 export async function ensureMenus() {

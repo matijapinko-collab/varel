@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateSiteContent } from "@/lib/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
@@ -42,6 +43,7 @@ export async function saveAffiliatePartner(partnerId: string, form: FormData) {
   await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "PARTNER", entityId: partnerId });
   revalidatePath("/administracija/affiliate-partners");
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 }
 
 export async function deleteAffiliatePartner(partnerId: string) {
@@ -96,6 +98,7 @@ export async function createOffer(toolId: string, form: FormData) {
   await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "OFFER", entityId: offer.id, details: { created: true } });
   revalidatePath(`/administracija/tools/${toolId}/offers`);
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 }
 
 export async function saveOffer(offerId: string, form: FormData) {
@@ -147,6 +150,7 @@ export async function saveOffer(offerId: string, form: FormData) {
   await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "OFFER", entityId: offerId });
   revalidatePath(`/administracija/tools/${offer.toolId}/offers`);
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 }
 
 export async function deleteOffer(offerId: string) {
@@ -155,6 +159,7 @@ export async function deleteOffer(offerId: string) {
   await audit({ userId, action: "AFFILIATE_UPDATE", entityType: "OFFER", entityId: offerId, details: { deleted: true } });
   revalidatePath(`/administracija/tools/${offer.toolId}/offers`);
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 }
 
 /* ---------------- Expired deal handling (Phase 2) ---------------- */
@@ -179,6 +184,7 @@ export async function archiveExpiredDeals() {
   });
   revalidatePath("/administracija/deals");
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 }
 
 /* ---------------- Partner feed fetch (Phase 3) ---------------- */
@@ -198,4 +204,5 @@ export async function fetchFeedNow(partnerId: string) {
   if ("error" in report) throw new Error(report.error);
   revalidatePath("/administracija/affiliate-partners");
   revalidatePath("/", "layout");
+  revalidateSiteContent();
 }

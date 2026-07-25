@@ -1,9 +1,17 @@
 import Link from "next/link";
 import Image from "next/image";
-import { db } from "@/lib/db";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
-import { getPublishedTools, getCategories, getLanguage } from "@/lib/content";
+import {
+  getPublishedTools,
+  getCategories,
+  getLanguage,
+  getLatestArticlesBlock,
+  getLatestComparisonsBlock,
+  getFeaturedEditorialBlock,
+  getLatestNewsBlock,
+  getLatestDealsBlock,
+} from "@/lib/content";
 import { getBestDeals } from "@/lib/deals-data";
 import { ToolCard, type ToolCardData } from "@/components/cards/tool-card";
 import { DealCard, type DealCardData } from "@/components/cards/deal-card";
@@ -12,7 +20,7 @@ import { NewsletterForm } from "./newsletter-form";
 import { FaqAccordion } from "./faq-accordion";
 import { HeroMotion } from "@/components/motion/hero-motion";
 import { AnimatedSection } from "@/components/motion/animated-section";
-import { postCategorySelect, postPathFor } from "@/lib/post-url";
+import { postPathFor } from "@/lib/post-url";
 
 /**
  * Renders page-builder blocks stored in the database (page_blocks table).
@@ -264,18 +272,7 @@ async function Block({ block, locale }: { block: BlockData; locale: Locale }) {
     }
 
     case "latest_articles": {
-      const language = await getLanguage(locale);
-      if (!language) return null;
-      const articles = await db.articleTranslation.findMany({
-        where: {
-          languageId: language.id,
-          status: "PUBLISHED",
-          article: { status: "PUBLISHED", deletedAt: null },
-        },
-        include: { article: { include: postCategorySelect } },
-        orderBy: { updatedAt: "desc" },
-        take: num(s, "limit", 3),
-      });
+      const articles = await getLatestArticlesBlock(locale, num(s, "limit", 3));
       if (!articles.length) return null;
       return (
         <SectionWrap
@@ -307,17 +304,7 @@ async function Block({ block, locale }: { block: BlockData; locale: Locale }) {
     }
 
     case "latest_comparisons": {
-      const language = await getLanguage(locale);
-      if (!language) return null;
-      const comparisons = await db.comparisonTranslation.findMany({
-        where: {
-          languageId: language.id,
-          status: "PUBLISHED",
-          comparison: { status: "PUBLISHED", deletedAt: null },
-        },
-        orderBy: { updatedAt: "desc" },
-        take: num(s, "limit", 4),
-      });
+      const comparisons = await getLatestComparisonsBlock(locale, num(s, "limit", 4));
       if (!comparisons.length) return null;
       return (
         <SectionWrap
@@ -342,17 +329,7 @@ async function Block({ block, locale }: { block: BlockData; locale: Locale }) {
     }
 
     case "featured_editorial": {
-      const language = await getLanguage(locale);
-      if (!language) return null;
-      const post = await db.editorialTranslation.findFirst({
-        where: {
-          languageId: language.id,
-          status: "PUBLISHED",
-          editorialPost: { status: "PUBLISHED", deletedAt: null },
-        },
-        include: { editorialPost: { include: { author: true } } },
-        orderBy: { updatedAt: "desc" },
-      });
+      const post = await getFeaturedEditorialBlock(locale);
       if (!post) return null;
       return (
         <SectionWrap title={str(c, "title", t.latest_editorial)}>
@@ -380,18 +357,7 @@ async function Block({ block, locale }: { block: BlockData; locale: Locale }) {
     }
 
     case "latest_news": {
-      const language = await getLanguage(locale);
-      if (!language) return null;
-      const news = await db.newsTranslation.findMany({
-        where: {
-          languageId: language.id,
-          status: "PUBLISHED",
-          newsItem: { status: "PUBLISHED", deletedAt: null },
-        },
-        include: { newsItem: true },
-        orderBy: { updatedAt: "desc" },
-        take: num(s, "limit", 4),
-      });
+      const news = await getLatestNewsBlock(locale, num(s, "limit", 4));
       if (!news.length) return null;
       return (
         <SectionWrap
@@ -415,7 +381,7 @@ async function Block({ block, locale }: { block: BlockData; locale: Locale }) {
                   )}
                 </div>
                 <span className="shrink-0 text-xs text-muted">
-                  {(n.newsItem.publishedAt ?? n.newsItem.createdAt).toLocaleDateString(locale)}
+                  {new Date(n.newsItem.publishedAt ?? n.newsItem.createdAt).toLocaleDateString(locale)}
                 </span>
               </Link>
             ))}
@@ -425,18 +391,7 @@ async function Block({ block, locale }: { block: BlockData; locale: Locale }) {
     }
 
     case "latest_deals": {
-      const language = await getLanguage(locale);
-      if (!language) return null;
-      const deals = await db.dealTranslation.findMany({
-        where: {
-          languageId: language.id,
-          status: "PUBLISHED",
-          deal: { status: "PUBLISHED", deletedAt: null },
-        },
-        include: { deal: true },
-        orderBy: { updatedAt: "desc" },
-        take: num(s, "limit", 3),
-      });
+      const deals = await getLatestDealsBlock(locale, num(s, "limit", 3));
       if (!deals.length) return null;
       return (
         <SectionWrap
