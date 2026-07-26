@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import {
   SUPPORTED_LOCALES,
-  THEME_COOKIE,
   isLocale,
   type Locale,
 } from "@/lib/i18n/config";
+import { themeInitScript } from "@/lib/theme-script";
 import { getBranding } from "@/lib/settings";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -15,7 +14,7 @@ import { PublicAdminBar } from "@/components/admin/public-admin-bar";
 import { TrackView } from "@/components/analytics/track-view";
 import { GoogleScripts } from "@/components/analytics/google-scripts";
 import { CookieConsent } from "@/components/consent/cookie-consent";
-import { getSetting } from "@/lib/settings";
+import { getPublicSetting } from "@/lib/settings";
 import "../globals.css";
 
 const inter = Inter({
@@ -26,6 +25,14 @@ const inter = Inter({
 export function generateStaticParams() {
   return SUPPORTED_LOCALES.map((locale) => ({ locale }));
 }
+
+/**
+ * ISR safety net for the whole public tree. Pages are served from the Full
+ * Route Cache; content mutations purge it immediately via
+ * revalidatePath("/", "layout") + the site-content tag, so this window only
+ * catches anything that slips past those calls.
+ */
+export const revalidate = 300;
 
 export async function generateMetadata(
   props: LayoutProps<"/[locale]">
@@ -51,16 +58,17 @@ export default async function LocaleLayout(props: LayoutProps<"/[locale]">) {
   const { locale } = await props.params;
   if (!isLocale(locale)) notFound();
 
-  const [cookieStore, branding, cookieBannerEnabled] = await Promise.all([
-    cookies(),
+  const [branding, cookieBannerEnabled] = await Promise.all([
     getBranding().catch(() => null),
-    getSetting<boolean>("cookie_banner_enabled").catch(() => true),
+    getPublicSetting<boolean>("cookie_banner_enabled").catch(() => true),
   ]);
 
-  const themeCookie = cookieStore.get(THEME_COOKIE)?.value;
-  const defaultTheme = branding?.defaultTheme === "DARK" ? "dark" : "light";
-  const theme =
-    themeCookie === "dark" || themeCookie === "light" ? themeCookie : defaultTheme;
+  // The server renders the branding default — identical HTML for every
+  // visitor, so the route stays in the Full Route Cache. The inline script
+  // below corrects the class from the client-readable theme cookie before
+  // first paint. Reading the cookie here with cookies() would force the whole
+  // public site back into dynamic rendering.
+  const theme = branding?.defaultTheme === "DARK" ? "dark" : "light";
 
   const brandVars: Record<string, string> = {};
   if (branding?.primaryColor) brandVars["--primary"] = branding.primaryColor;
@@ -75,6 +83,7 @@ export default async function LocaleLayout(props: LayoutProps<"/[locale]">) {
       suppressHydrationWarning
     >
       <body className="flex min-h-screen flex-col bg-background text-foreground">
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript(theme) }} />
         <GoogleScripts />
         <TrackView type="PAGE_VIEW" locale={locale} />
         <PublicAdminBar />

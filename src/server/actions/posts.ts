@@ -5,7 +5,7 @@
  * Every mutation is permission-checked and audited.
  */
 import { revalidatePath } from "next/cache";
-import { revalidateSiteContent } from "@/lib/cache";
+import { updateSiteContent } from "@/lib/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
@@ -267,7 +267,7 @@ export async function restoreRevision(revisionId: string): Promise<{ ok: boolean
   await audit({ userId, action: "UPDATE", entityType: "ARTICLE", entityId: rev.articleId, details: { restoredRevisionId: revisionId } });
   revalidatePath(LIST);
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
   return { ok: true, message: "Revision restored." };
 }
 
@@ -452,7 +452,7 @@ export async function savePost(
   });
   revalidatePath(LIST);
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
   return { ok: true, status, message };
 }
 
@@ -523,7 +523,7 @@ export async function publishPost(id: string) {
   await audit({ userId, action: "PUBLISH", entityType: "ARTICLE", entityId: id });
   revalidatePath(LIST);
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function setPostStatus(id: string, status: ContentStatus) {
@@ -539,7 +539,7 @@ export async function trashPost(id: string) {
   await audit({ userId, action: "DELETE", entityType: "ARTICLE", entityId: id, details: { trashed: true } });
   revalidatePath(LIST);
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function restorePost(id: string) {
@@ -597,7 +597,7 @@ export async function quickEditPost(id: string, form: FormData) {
   await audit({ userId, action: "UPDATE", entityType: "ARTICLE", entityId: id, details: { quickEdit: true } });
   revalidatePath(LIST);
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function bulkPostAction(form: FormData) {
@@ -618,5 +618,5 @@ export async function bulkPostAction(form: FormData) {
   await audit({ userId, action: "UPDATE", entityType: "ARTICLE", details: { bulk: action, count: ids.length } });
   revalidatePath(LIST);
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }

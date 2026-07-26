@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { revalidateSiteContent } from "@/lib/cache";
+import { updateSiteContent } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
 import { setSetting } from "@/lib/settings";
@@ -16,7 +16,7 @@ export async function saveAnalyticsSettings(form: FormData) {
   await audit({ userId, action: "SETTINGS_UPDATE", entityType: "SETTINGS", details: { section: "analytics" } });
   revalidatePath("/administracija/analytics");
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function saveContentSettings(form: FormData) {
@@ -38,7 +38,7 @@ export async function saveContentSettings(form: FormData) {
   await audit({ userId, action: "SETTINGS_UPDATE", entityType: "SETTINGS", details: { section: "content" } });
   revalidatePath("/administracija/settings/content");
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function saveGeneralSettings(form: FormData) {
@@ -48,7 +48,7 @@ export async function saveGeneralSettings(form: FormData) {
   await setSetting("default_language", fd(form, "default_language"));
   await audit({ userId, action: "SETTINGS_UPDATE", entityType: "SETTINGS", details: { section: "general" } });
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function saveBranding(form: FormData) {
@@ -77,5 +77,5 @@ export async function saveBranding(form: FormData) {
   }
   await audit({ userId, action: "SETTINGS_UPDATE", entityType: "BRANDING" });
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }

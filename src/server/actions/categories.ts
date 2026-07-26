@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { revalidateSiteContent } from "@/lib/cache";
+import { updateSiteContent } from "@/lib/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
@@ -60,7 +60,7 @@ export async function generateLocalizedCategorySlugs(): Promise<void> {
   await audit({ userId, action: "UPDATE", entityType: "CATEGORY", entityId: "bulk-slugs", details: { changed } });
   revalidatePath("/administracija/categories");
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function createCategory(form: FormData) {
@@ -119,7 +119,7 @@ export async function saveCategory(categoryId: string, languageId: string, form:
   await saveSeoFromForm(form, "CATEGORY", categoryId, languageId);
   await audit({ userId, action: "UPDATE", entityType: "CATEGORY", entityId: categoryId });
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function deleteCategory(categoryId: string) {

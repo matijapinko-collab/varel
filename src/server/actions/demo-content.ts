@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { revalidateSiteContent } from "@/lib/cache";
+import { updateSiteContent } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { requirePermission } from "./helpers";
 import { audit } from "@/lib/security";
@@ -114,6 +114,6 @@ export async function hideDemoContent(): Promise<{ ok: boolean; hidden: number; 
   });
 
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
   return { ok: true, hidden: items.length, message: `${items.length} demo items set to draft.` };
 }

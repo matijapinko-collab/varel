@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { revalidateSiteContent } from "@/lib/cache";
+import { updateSiteContent } from "@/lib/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
@@ -63,7 +63,7 @@ export async function savePageSettings(pageId: string, form: FormData) {
   await saveSeoFromForm(form, "PAGE", pageId, page.languageId);
   await audit({ userId, action: "UPDATE", entityType: "PAGE", entityId: pageId });
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function deletePage(pageId: string) {
@@ -151,7 +151,7 @@ export async function saveBlockFields(blockId: string, form: FormData) {
   await audit({ userId, action: "UPDATE", entityType: "PAGE_BLOCK", entityId: blockId });
   if (block.pageId) revalidatePath(`/administracija/pages/${block.pageId}`);
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function saveBlock(blockId: string, form: FormData) {
@@ -173,7 +173,7 @@ export async function saveBlock(blockId: string, form: FormData) {
   await audit({ userId, action: "UPDATE", entityType: "PAGE_BLOCK", entityId: blockId });
   revalidatePath(`/administracija/pages/${block.pageId}`);
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function moveBlock(blockId: string, direction: "up" | "down") {
@@ -195,7 +195,7 @@ export async function moveBlock(blockId: string, direction: "up" | "down") {
   ]);
   revalidatePath(`/administracija/pages/${block.pageId}`);
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function toggleBlockHidden(blockId: string) {
@@ -208,7 +208,7 @@ export async function toggleBlockHidden(blockId: string) {
   });
   revalidatePath(`/administracija/pages/${block.pageId}`);
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function duplicateBlock(blockId: string) {
@@ -238,5 +238,5 @@ export async function deleteBlock(blockId: string) {
   const block = await db.pageBlock.delete({ where: { id: blockId } });
   if (block.pageId) revalidatePath(`/administracija/pages/${block.pageId}`);
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }

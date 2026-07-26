@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { revalidateSiteContent } from "@/lib/cache";
+import { updateSiteContent } from "@/lib/cache";
 import { audit } from "@/lib/security";
 import { getSetting, setSetting } from "@/lib/settings";
 import { requirePermission, fd, fdBool, fdNum } from "./helpers";
@@ -104,5 +104,5 @@ export async function savePriceCheckerSettings(form: FormData) {
   });
   revalidatePath("/administracija/price-checker");
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }

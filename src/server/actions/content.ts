@@ -6,7 +6,7 @@
  * All mutations are permission-checked and audited.
  */
 import { revalidatePath } from "next/cache";
-import { revalidateSiteContent } from "@/lib/cache";
+import { updateSiteContent } from "@/lib/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/security";
@@ -127,7 +127,7 @@ export async function saveArticle(articleId: string, languageId: string, form: F
   await saveSeoFromForm(form, "ARTICLE", articleId, languageId);
   await audit({ userId, action: "UPDATE", entityType: "ARTICLE", entityId: articleId });
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function deleteArticle(articleId: string) {
@@ -193,7 +193,7 @@ export async function saveEditorial(postId: string, languageId: string, form: Fo
   await saveSeoFromForm(form, "EDITORIAL", postId, languageId);
   await audit({ userId, action: "UPDATE", entityType: "EDITORIAL", entityId: postId });
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function deleteEditorial(postId: string) {
@@ -271,7 +271,7 @@ export async function saveNews(newsId: string, languageId: string, form: FormDat
   await saveSeoFromForm(form, "NEWS", newsId, languageId);
   await audit({ userId, action: "UPDATE", entityType: "NEWS", entityId: newsId });
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function deleteNews(newsId: string) {
@@ -345,7 +345,7 @@ export async function savePrompt(promptId: string, languageId: string, form: For
   await saveSeoFromForm(form, "PROMPT", promptId, languageId);
   await audit({ userId, action: "UPDATE", entityType: "PROMPT", entityId: promptId });
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function deletePrompt(promptId: string) {
@@ -428,7 +428,7 @@ export async function saveDeal(dealId: string, languageId: string, form: FormDat
   await saveSeoFromForm(form, "DEAL", dealId, languageId);
   await audit({ userId, action: "UPDATE", entityType: "DEAL", entityId: dealId });
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function deleteDeal(dealId: string) {
@@ -517,7 +517,7 @@ export async function saveComparison(comparisonId: string, languageId: string, f
   await saveSeoFromForm(form, "COMPARISON", comparisonId, languageId);
   await audit({ userId, action: "UPDATE", entityType: "COMPARISON", entityId: comparisonId });
   revalidatePath("/", "layout");
-  revalidateSiteContent();
+  updateSiteContent();
 }
 
 export async function deleteComparison(comparisonId: string) {

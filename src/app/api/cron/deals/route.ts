@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import { expireSiteContent } from "@/lib/cache";
 import { audit } from "@/lib/security";
 import { fetchPartnerFeed } from "@/server/import-offers";
 import { publishDueScheduledPosts } from "@/server/actions/posts";
@@ -91,6 +93,12 @@ export async function GET(request: Request) {
 
   // 5. Publish posts whose scheduled time has passed.
   summary.scheduledPostsPublished = await publishDueScheduledPosts();
+
+  // The steps above mutate deals, offers and possibly publish posts — drop the
+  // public content cache and the Full Route Cache so visitors see the result.
+  // Route Handlers may not call updateTag, hence the handler-variant helper.
+  expireSiteContent();
+  revalidatePath("/", "layout");
 
   await audit({
     action: "UPDATE",

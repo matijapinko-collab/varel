@@ -12,6 +12,18 @@ export async function getSetting<T = unknown>(key: string): Promise<T | null> {
   return (row?.valueJson as T) ?? null;
 }
 
+/**
+ * Cached variant for PUBLIC pages only (layout, analytics scripts). Admin
+ * screens keep the uncached getSetting so editors always see fresh values.
+ */
+const getPublicSettingCached = cachePublic(
+  async (key: string) => getSetting<unknown>(key),
+  ["getPublicSetting"]
+);
+export async function getPublicSetting<T = unknown>(key: string): Promise<T | null> {
+  return (await getPublicSettingCached(key)) as T | null;
+}
+
 export async function setSetting(key: string, value: unknown, description?: string) {
   await db.setting.upsert({
     where: { key },

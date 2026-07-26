@@ -1,4 +1,4 @@
-import { getSetting } from "@/lib/settings";
+import { getPublicSetting } from "@/lib/settings";
 import { ConsentedAnalytics } from "./consented-analytics";
 
 /**
@@ -8,9 +8,9 @@ import { ConsentedAnalytics } from "./consented-analytics";
  */
 export async function GoogleScripts() {
   const [gaId, gtmId, gscCode] = await Promise.all([
-    getSetting<string>("google_analytics_id").catch(() => null),
-    getSetting<string>("google_tag_manager_id").catch(() => null),
-    getSetting<string>("search_console_verification").catch(() => null),
+    getPublicSetting<string>("google_analytics_id").catch(() => null),
+    getPublicSetting<string>("google_tag_manager_id").catch(() => null),
+    getPublicSetting<string>("search_console_verification").catch(() => null),
   ]);
 
   return (
