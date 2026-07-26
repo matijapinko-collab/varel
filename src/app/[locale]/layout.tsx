@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { notFound } from "next/navigation";
-import {
-  SUPPORTED_LOCALES,
-  isLocale,
-  type Locale,
-} from "@/lib/i18n/config";
+import { isLocale, type Locale } from "@/lib/i18n/config";
 import { themeInitScript } from "@/lib/theme-script";
 import { getBranding } from "@/lib/settings";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -22,8 +18,14 @@ const inter = Inter({
   subsets: ["latin", "latin-ext"],
 });
 
-export function generateStaticParams() {
-  return SUPPORTED_LOCALES.map((locale) => ({ locale }));
+/**
+ * Deliberately empty: the Vercel build container cannot reach the database
+ * (DatabaseNotReachable at prerender), so nothing is generated at build time.
+ * Each locale page renders on first request — where the DB is reachable — and
+ * then lives in the Full Route Cache like any prerendered page.
+ */
+export function generateStaticParams(): { locale: string }[] {
+  return [];
 }
 
 /**
